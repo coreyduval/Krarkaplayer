@@ -1,0 +1,5 @@
+[TRACE win] detail="Infinite hasty attackers (Dualcaster/Twinflame) — lethal combat."
+  actions=[Action { kind: "cast_perm", card: Some("Imperial Recruiter"), idx: None, target: None }]
+  mana[W U B R G C *]=[0, 0, 0, 7, 0, 0, 0] treasures=0
+  hand=["Glasspool Mimic", "Birgi, God of Storytelling", "Spellseeker", "Otawara, Soaring City", "Baral, Chief of Compliance", "Underworld Breach", "Twinflame", "Fierce Guardianship", "Deflecting Swat", "Peek", "Dualcaster Mage"]
+  board=["Mountain", "Mountain", "Krark, the Thumbless", "Island", "Imperial Recruiter"]

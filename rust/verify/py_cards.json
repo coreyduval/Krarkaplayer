@@ -1,0 +1,2597 @@
+{
+ "cards": {
+  "An Offer You Can't Refuse": {
+   "name": "An Offer You Can't Refuse",
+   "types": [
+    "instant"
+   ],
+   "cost": {
+    "U": 1
+   },
+   "mana_value": 1,
+   "subtypes": [],
+   "is_krark_body": false,
+   "is_trigger_doubler": false,
+   "clones_sakashima_safe": false,
+   "draw_per_trigger": 0,
+   "treasure_per_trigger": 0,
+   "mana_per_trigger": {},
+   "damage_per_trigger": 0,
+   "treasure_per_flip_win": 0,
+   "trigger_cause": null,
+   "fires_on_copy": false,
+   "blue_pips": 1,
+   "is_instant_or_sorcery": true,
+   "is_permanent": false,
+   "is_shaman_or_wizard": false,
+   "has_value_trigger": false
+  },
+  "Ancient Tomb": {
+   "name": "Ancient Tomb",
+   "types": [
+    "land"
+   ],
+   "cost": {},
+   "mana_value": 0,
+   "subtypes": [],
+   "is_krark_body": false,
+   "is_trigger_doubler": false,
+   "clones_sakashima_safe": false,
+   "draw_per_trigger": 0,
+   "treasure_per_trigger": 0,
+   "mana_per_trigger": {},
+   "damage_per_trigger": 0,
+   "treasure_per_flip_win": 0,
+   "trigger_cause": null,
+   "fires_on_copy": false,
+   "blue_pips": 0,
+   "is_instant_or_sorcery": false,
+   "is_permanent": true,
+   "is_shaman_or_wizard": false,
+   "has_value_trigger": false
+  },
+  "Arcane Signet": {
+   "name": "Arcane Signet",
+   "types": [
+    "artifact"
+   ],
+   "cost": {
+    "generic": 2
+   },
+   "mana_value": 2,
+   "subtypes": [],
+   "is_krark_body": false,
+   "is_trigger_doubler": false,
+   "clones_sakashima_safe": false,
+   "draw_per_trigger": 0,
+   "treasure_per_trigger": 0,
+   "mana_per_trigger": {},
+   "damage_per_trigger": 0,
+   "treasure_per_flip_win": 0,
+   "trigger_cause": null,
+   "fires_on_copy": false,
+   "blue_pips": 0,
+   "is_instant_or_sorcery": false,
+   "is_permanent": true,
+   "is_shaman_or_wizard": false,
+   "has_value_trigger": false
+  },
+  "Archmage Emeritus": {
+   "name": "Archmage Emeritus",
+   "types": [
+    "creature"
+   ],
+   "cost": {
+    "U": 2,
+    "generic": 2
+   },
+   "mana_value": 4,
+   "subtypes": [
+    "Human",
+    "Wizard"
+   ],
+   "is_krark_body": false,
+   "is_trigger_doubler": false,
+   "clones_sakashima_safe": false,
+   "draw_per_trigger": 1,
+   "treasure_per_trigger": 0,
+   "mana_per_trigger": {},
+   "damage_per_trigger": 0,
+   "treasure_per_flip_win": 0,
+   "trigger_cause": "is_cast_or_copy",
+   "fires_on_copy": true,
+   "blue_pips": 2,
+   "is_instant_or_sorcery": false,
+   "is_permanent": true,
+   "is_shaman_or_wizard": true,
+   "has_value_trigger": true
+  },
+  "Baral, Chief of Compliance": {
+   "name": "Baral, Chief of Compliance",
+   "types": [
+    "creature"
+   ],
+   "cost": {
+    "U": 1,
+    "generic": 1
+   },
+   "mana_value": 2,
+   "subtypes": [],
+   "is_krark_body": false,
+   "is_trigger_doubler": false,
+   "clones_sakashima_safe": false,
+   "draw_per_trigger": 0,
+   "treasure_per_trigger": 0,
+   "mana_per_trigger": {},
+   "damage_per_trigger": 0,
+   "treasure_per_flip_win": 0,
+   "trigger_cause": null,
+   "fires_on_copy": false,
+   "blue_pips": 1,
+   "is_instant_or_sorcery": false,
+   "is_permanent": true,
+   "is_shaman_or_wizard": false,
+   "has_value_trigger": false
+  },
+  "Birgi, God of Storytelling": {
+   "name": "Birgi, God of Storytelling",
+   "types": [
+    "creature"
+   ],
+   "cost": {
+    "R": 1,
+    "generic": 2
+   },
+   "mana_value": 3,
+   "subtypes": [
+    "God"
+   ],
+   "is_krark_body": false,
+   "is_trigger_doubler": false,
+   "clones_sakashima_safe": false,
+   "draw_per_trigger": 0,
+   "treasure_per_trigger": 0,
+   "mana_per_trigger": {
+    "R": 1
+   },
+   "damage_per_trigger": 0,
+   "treasure_per_flip_win": 0,
+   "trigger_cause": "spell_cast",
+   "fires_on_copy": false,
+   "blue_pips": 0,
+   "is_instant_or_sorcery": false,
+   "is_permanent": true,
+   "is_shaman_or_wizard": false,
+   "has_value_trigger": true
+  },
+  "Borne Upon a Wind": {
+   "name": "Borne Upon a Wind",
+   "types": [
+    "instant"
+   ],
+   "cost": {
+    "U": 1,
+    "generic": 1
+   },
+   "mana_value": 2,
+   "subtypes": [],
+   "is_krark_body": false,
+   "is_trigger_doubler": false,
+   "clones_sakashima_safe": false,
+   "draw_per_trigger": 0,
+   "treasure_per_trigger": 0,
+   "mana_per_trigger": {},
+   "damage_per_trigger": 0,
+   "treasure_per_flip_win": 0,
+   "trigger_cause": null,
+   "fires_on_copy": false,
+   "blue_pips": 1,
+   "is_instant_or_sorcery": true,
+   "is_permanent": false,
+   "is_shaman_or_wizard": false,
+   "has_value_trigger": false
+  },
+  "Brain Freeze": {
+   "name": "Brain Freeze",
+   "types": [
+    "instant"
+   ],
+   "cost": {
+    "U": 1,
+    "generic": 1
+   },
+   "mana_value": 2,
+   "subtypes": [],
+   "is_krark_body": false,
+   "is_trigger_doubler": false,
+   "clones_sakashima_safe": false,
+   "draw_per_trigger": 0,
+   "treasure_per_trigger": 0,
+   "mana_per_trigger": {},
+   "damage_per_trigger": 0,
+   "treasure_per_flip_win": 0,
+   "trigger_cause": null,
+   "fires_on_copy": false,
+   "blue_pips": 1,
+   "is_instant_or_sorcery": true,
+   "is_permanent": false,
+   "is_shaman_or_wizard": false,
+   "has_value_trigger": false
+  },
+  "Brainstorm": {
+   "name": "Brainstorm",
+   "types": [
+    "instant"
+   ],
+   "cost": {
+    "U": 1
+   },
+   "mana_value": 1,
+   "subtypes": [],
+   "is_krark_body": false,
+   "is_trigger_doubler": false,
+   "clones_sakashima_safe": false,
+   "draw_per_trigger": 0,
+   "treasure_per_trigger": 0,
+   "mana_per_trigger": {},
+   "damage_per_trigger": 0,
+   "treasure_per_flip_win": 0,
+   "trigger_cause": null,
+   "fires_on_copy": false,
+   "blue_pips": 1,
+   "is_instant_or_sorcery": true,
+   "is_permanent": false,
+   "is_shaman_or_wizard": false,
+   "has_value_trigger": false
+  },
+  "Chrome Mox": {
+   "name": "Chrome Mox",
+   "types": [
+    "artifact"
+   ],
+   "cost": {
+    "generic": 0
+   },
+   "mana_value": 0,
+   "subtypes": [],
+   "is_krark_body": false,
+   "is_trigger_doubler": false,
+   "clones_sakashima_safe": false,
+   "draw_per_trigger": 0,
+   "treasure_per_trigger": 0,
+   "mana_per_trigger": {},
+   "damage_per_trigger": 0,
+   "treasure_per_flip_win": 0,
+   "trigger_cause": null,
+   "fires_on_copy": false,
+   "blue_pips": 0,
+   "is_instant_or_sorcery": false,
+   "is_permanent": true,
+   "is_shaman_or_wizard": false,
+   "has_value_trigger": false
+  },
+  "Command Tower": {
+   "name": "Command Tower",
+   "types": [
+    "land"
+   ],
+   "cost": {},
+   "mana_value": 0,
+   "subtypes": [],
+   "is_krark_body": false,
+   "is_trigger_doubler": false,
+   "clones_sakashima_safe": false,
+   "draw_per_trigger": 0,
+   "treasure_per_trigger": 0,
+   "mana_per_trigger": {},
+   "damage_per_trigger": 0,
+   "treasure_per_flip_win": 0,
+   "trigger_cause": null,
+   "fires_on_copy": false,
+   "blue_pips": 0,
+   "is_instant_or_sorcery": false,
+   "is_permanent": true,
+   "is_shaman_or_wizard": false,
+   "has_value_trigger": false
+  },
+  "Consider": {
+   "name": "Consider",
+   "types": [
+    "instant"
+   ],
+   "cost": {
+    "U": 1
+   },
+   "mana_value": 1,
+   "subtypes": [],
+   "is_krark_body": false,
+   "is_trigger_doubler": false,
+   "clones_sakashima_safe": false,
+   "draw_per_trigger": 0,
+   "treasure_per_trigger": 0,
+   "mana_per_trigger": {},
+   "damage_per_trigger": 0,
+   "treasure_per_flip_win": 0,
+   "trigger_cause": null,
+   "fires_on_copy": false,
+   "blue_pips": 1,
+   "is_instant_or_sorcery": true,
+   "is_permanent": false,
+   "is_shaman_or_wizard": false,
+   "has_value_trigger": false
+  },
+  "Cyclonic Rift": {
+   "name": "Cyclonic Rift",
+   "types": [
+    "instant"
+   ],
+   "cost": {
+    "U": 1,
+    "generic": 1
+   },
+   "mana_value": 2,
+   "subtypes": [],
+   "is_krark_body": false,
+   "is_trigger_doubler": false,
+   "clones_sakashima_safe": false,
+   "draw_per_trigger": 0,
+   "treasure_per_trigger": 0,
+   "mana_per_trigger": {},
+   "damage_per_trigger": 0,
+   "treasure_per_flip_win": 0,
+   "trigger_cause": null,
+   "fires_on_copy": false,
+   "blue_pips": 1,
+   "is_instant_or_sorcery": true,
+   "is_permanent": false,
+   "is_shaman_or_wizard": false,
+   "has_value_trigger": false
+  },
+  "Defense Grid": {
+   "name": "Defense Grid",
+   "types": [
+    "artifact"
+   ],
+   "cost": {
+    "generic": 2
+   },
+   "mana_value": 2,
+   "subtypes": [],
+   "is_krark_body": false,
+   "is_trigger_doubler": false,
+   "clones_sakashima_safe": false,
+   "draw_per_trigger": 0,
+   "treasure_per_trigger": 0,
+   "mana_per_trigger": {},
+   "damage_per_trigger": 0,
+   "treasure_per_flip_win": 0,
+   "trigger_cause": null,
+   "fires_on_copy": false,
+   "blue_pips": 0,
+   "is_instant_or_sorcery": false,
+   "is_permanent": true,
+   "is_shaman_or_wizard": false,
+   "has_value_trigger": false
+  },
+  "Deflecting Swat": {
+   "name": "Deflecting Swat",
+   "types": [
+    "instant"
+   ],
+   "cost": {
+    "R": 1,
+    "generic": 2
+   },
+   "mana_value": 3,
+   "subtypes": [],
+   "is_krark_body": false,
+   "is_trigger_doubler": false,
+   "clones_sakashima_safe": false,
+   "draw_per_trigger": 0,
+   "treasure_per_trigger": 0,
+   "mana_per_trigger": {},
+   "damage_per_trigger": 0,
+   "treasure_per_flip_win": 0,
+   "trigger_cause": null,
+   "fires_on_copy": false,
+   "blue_pips": 0,
+   "is_instant_or_sorcery": true,
+   "is_permanent": false,
+   "is_shaman_or_wizard": false,
+   "has_value_trigger": false
+  },
+  "Desperate Ritual": {
+   "name": "Desperate Ritual",
+   "types": [
+    "instant"
+   ],
+   "cost": {
+    "R": 2,
+    "generic": 1
+   },
+   "mana_value": 3,
+   "subtypes": [],
+   "is_krark_body": false,
+   "is_trigger_doubler": false,
+   "clones_sakashima_safe": false,
+   "draw_per_trigger": 0,
+   "treasure_per_trigger": 0,
+   "mana_per_trigger": {},
+   "damage_per_trigger": 0,
+   "treasure_per_flip_win": 0,
+   "trigger_cause": null,
+   "fires_on_copy": false,
+   "blue_pips": 0,
+   "is_instant_or_sorcery": true,
+   "is_permanent": false,
+   "is_shaman_or_wizard": false,
+   "has_value_trigger": false
+  },
+  "Dualcaster Mage": {
+   "name": "Dualcaster Mage",
+   "types": [
+    "creature"
+   ],
+   "cost": {
+    "R": 2,
+    "generic": 1
+   },
+   "mana_value": 3,
+   "subtypes": [],
+   "is_krark_body": false,
+   "is_trigger_doubler": false,
+   "clones_sakashima_safe": false,
+   "draw_per_trigger": 0,
+   "treasure_per_trigger": 0,
+   "mana_per_trigger": {},
+   "damage_per_trigger": 0,
+   "treasure_per_flip_win": 0,
+   "trigger_cause": null,
+   "fires_on_copy": false,
+   "blue_pips": 0,
+   "is_instant_or_sorcery": false,
+   "is_permanent": true,
+   "is_shaman_or_wizard": false,
+   "has_value_trigger": false
+  },
+  "Fierce Guardianship": {
+   "name": "Fierce Guardianship",
+   "types": [
+    "instant"
+   ],
+   "cost": {
+    "U": 1,
+    "generic": 2
+   },
+   "mana_value": 3,
+   "subtypes": [],
+   "is_krark_body": false,
+   "is_trigger_doubler": false,
+   "clones_sakashima_safe": false,
+   "draw_per_trigger": 0,
+   "treasure_per_trigger": 0,
+   "mana_per_trigger": {},
+   "damage_per_trigger": 0,
+   "treasure_per_flip_win": 0,
+   "trigger_cause": null,
+   "fires_on_copy": false,
+   "blue_pips": 1,
+   "is_instant_or_sorcery": true,
+   "is_permanent": false,
+   "is_shaman_or_wizard": false,
+   "has_value_trigger": false
+  },
+  "Flusterstorm": {
+   "name": "Flusterstorm",
+   "types": [
+    "instant"
+   ],
+   "cost": {
+    "U": 1
+   },
+   "mana_value": 1,
+   "subtypes": [],
+   "is_krark_body": false,
+   "is_trigger_doubler": false,
+   "clones_sakashima_safe": false,
+   "draw_per_trigger": 0,
+   "treasure_per_trigger": 0,
+   "mana_per_trigger": {},
+   "damage_per_trigger": 0,
+   "treasure_per_flip_win": 0,
+   "trigger_cause": null,
+   "fires_on_copy": false,
+   "blue_pips": 1,
+   "is_instant_or_sorcery": true,
+   "is_permanent": false,
+   "is_shaman_or_wizard": false,
+   "has_value_trigger": false
+  },
+  "Force of Will": {
+   "name": "Force of Will",
+   "types": [
+    "instant"
+   ],
+   "cost": {
+    "U": 2,
+    "generic": 3
+   },
+   "mana_value": 5,
+   "subtypes": [],
+   "is_krark_body": false,
+   "is_trigger_doubler": false,
+   "clones_sakashima_safe": false,
+   "draw_per_trigger": 0,
+   "treasure_per_trigger": 0,
+   "mana_per_trigger": {},
+   "damage_per_trigger": 0,
+   "treasure_per_flip_win": 0,
+   "trigger_cause": null,
+   "fires_on_copy": false,
+   "blue_pips": 2,
+   "is_instant_or_sorcery": true,
+   "is_permanent": false,
+   "is_shaman_or_wizard": false,
+   "has_value_trigger": false
+  },
+  "Frantic Search": {
+   "name": "Frantic Search",
+   "types": [
+    "instant"
+   ],
+   "cost": {
+    "U": 1,
+    "generic": 2
+   },
+   "mana_value": 3,
+   "subtypes": [],
+   "is_krark_body": false,
+   "is_trigger_doubler": false,
+   "clones_sakashima_safe": false,
+   "draw_per_trigger": 0,
+   "treasure_per_trigger": 0,
+   "mana_per_trigger": {},
+   "damage_per_trigger": 0,
+   "treasure_per_flip_win": 0,
+   "trigger_cause": null,
+   "fires_on_copy": false,
+   "blue_pips": 1,
+   "is_instant_or_sorcery": true,
+   "is_permanent": false,
+   "is_shaman_or_wizard": false,
+   "has_value_trigger": false
+  },
+  "Gale, Waterdeep Prodigy": {
+   "name": "Gale, Waterdeep Prodigy",
+   "types": [
+    "creature"
+   ],
+   "cost": {
+    "U": 1,
+    "generic": 2
+   },
+   "mana_value": 3,
+   "subtypes": [],
+   "is_krark_body": false,
+   "is_trigger_doubler": false,
+   "clones_sakashima_safe": false,
+   "draw_per_trigger": 0,
+   "treasure_per_trigger": 0,
+   "mana_per_trigger": {},
+   "damage_per_trigger": 0,
+   "treasure_per_flip_win": 0,
+   "trigger_cause": null,
+   "fires_on_copy": false,
+   "blue_pips": 1,
+   "is_instant_or_sorcery": false,
+   "is_permanent": true,
+   "is_shaman_or_wizard": false,
+   "has_value_trigger": false
+  },
+  "Gamble": {
+   "name": "Gamble",
+   "types": [
+    "sorcery"
+   ],
+   "cost": {
+    "R": 1
+   },
+   "mana_value": 1,
+   "subtypes": [],
+   "is_krark_body": false,
+   "is_trigger_doubler": false,
+   "clones_sakashima_safe": false,
+   "draw_per_trigger": 0,
+   "treasure_per_trigger": 0,
+   "mana_per_trigger": {},
+   "damage_per_trigger": 0,
+   "treasure_per_flip_win": 0,
+   "trigger_cause": null,
+   "fires_on_copy": false,
+   "blue_pips": 0,
+   "is_instant_or_sorcery": true,
+   "is_permanent": false,
+   "is_shaman_or_wizard": false,
+   "has_value_trigger": false
+  },
+  "Gitaxian Probe": {
+   "name": "Gitaxian Probe",
+   "types": [
+    "sorcery"
+   ],
+   "cost": {
+    "U": 1
+   },
+   "mana_value": 1,
+   "subtypes": [],
+   "is_krark_body": false,
+   "is_trigger_doubler": false,
+   "clones_sakashima_safe": false,
+   "draw_per_trigger": 0,
+   "treasure_per_trigger": 0,
+   "mana_per_trigger": {},
+   "damage_per_trigger": 0,
+   "treasure_per_flip_win": 0,
+   "trigger_cause": null,
+   "fires_on_copy": false,
+   "blue_pips": 1,
+   "is_instant_or_sorcery": true,
+   "is_permanent": false,
+   "is_shaman_or_wizard": false,
+   "has_value_trigger": false
+  },
+  "Glasspool Mimic": {
+   "name": "Glasspool Mimic",
+   "types": [
+    "creature"
+   ],
+   "cost": {
+    "U": 1,
+    "generic": 2
+   },
+   "mana_value": 3,
+   "subtypes": [],
+   "is_krark_body": false,
+   "is_trigger_doubler": false,
+   "clones_sakashima_safe": false,
+   "draw_per_trigger": 0,
+   "treasure_per_trigger": 0,
+   "mana_per_trigger": {},
+   "damage_per_trigger": 0,
+   "treasure_per_flip_win": 0,
+   "trigger_cause": null,
+   "fires_on_copy": false,
+   "blue_pips": 1,
+   "is_instant_or_sorcery": false,
+   "is_permanent": true,
+   "is_shaman_or_wizard": false,
+   "has_value_trigger": false
+  },
+  "Grapeshot": {
+   "name": "Grapeshot",
+   "types": [
+    "sorcery"
+   ],
+   "cost": {
+    "R": 1,
+    "generic": 1
+   },
+   "mana_value": 2,
+   "subtypes": [],
+   "is_krark_body": false,
+   "is_trigger_doubler": false,
+   "clones_sakashima_safe": false,
+   "draw_per_trigger": 0,
+   "treasure_per_trigger": 0,
+   "mana_per_trigger": {},
+   "damage_per_trigger": 0,
+   "treasure_per_flip_win": 0,
+   "trigger_cause": null,
+   "fires_on_copy": false,
+   "blue_pips": 0,
+   "is_instant_or_sorcery": true,
+   "is_permanent": false,
+   "is_shaman_or_wizard": false,
+   "has_value_trigger": false
+  },
+  "Great Furnace": {
+   "name": "Great Furnace",
+   "types": [
+    "land"
+   ],
+   "cost": {},
+   "mana_value": 0,
+   "subtypes": [],
+   "is_krark_body": false,
+   "is_trigger_doubler": false,
+   "clones_sakashima_safe": false,
+   "draw_per_trigger": 0,
+   "treasure_per_trigger": 0,
+   "mana_per_trigger": {},
+   "damage_per_trigger": 0,
+   "treasure_per_flip_win": 0,
+   "trigger_cause": null,
+   "fires_on_copy": false,
+   "blue_pips": 0,
+   "is_instant_or_sorcery": false,
+   "is_permanent": true,
+   "is_shaman_or_wizard": false,
+   "has_value_trigger": false
+  },
+  "Gut Shot": {
+   "name": "Gut Shot",
+   "types": [
+    "instant"
+   ],
+   "cost": {
+    "R": 1
+   },
+   "mana_value": 1,
+   "subtypes": [],
+   "is_krark_body": false,
+   "is_trigger_doubler": false,
+   "clones_sakashima_safe": false,
+   "draw_per_trigger": 0,
+   "treasure_per_trigger": 0,
+   "mana_per_trigger": {},
+   "damage_per_trigger": 0,
+   "treasure_per_flip_win": 0,
+   "trigger_cause": null,
+   "fires_on_copy": false,
+   "blue_pips": 0,
+   "is_instant_or_sorcery": true,
+   "is_permanent": false,
+   "is_shaman_or_wizard": false,
+   "has_value_trigger": false
+  },
+  "Harmonic Prodigy": {
+   "name": "Harmonic Prodigy",
+   "types": [
+    "creature"
+   ],
+   "cost": {
+    "R": 1,
+    "generic": 1
+   },
+   "mana_value": 2,
+   "subtypes": [
+    "Human",
+    "Shaman"
+   ],
+   "is_krark_body": false,
+   "is_trigger_doubler": true,
+   "clones_sakashima_safe": false,
+   "draw_per_trigger": 0,
+   "treasure_per_trigger": 0,
+   "mana_per_trigger": {},
+   "damage_per_trigger": 0,
+   "treasure_per_flip_win": 0,
+   "trigger_cause": null,
+   "fires_on_copy": false,
+   "blue_pips": 0,
+   "is_instant_or_sorcery": false,
+   "is_permanent": true,
+   "is_shaman_or_wizard": true,
+   "has_value_trigger": false
+  },
+  "Heat Shimmer": {
+   "name": "Heat Shimmer",
+   "types": [
+    "sorcery"
+   ],
+   "cost": {
+    "R": 1,
+    "generic": 2
+   },
+   "mana_value": 3,
+   "subtypes": [],
+   "is_krark_body": false,
+   "is_trigger_doubler": false,
+   "clones_sakashima_safe": false,
+   "draw_per_trigger": 0,
+   "treasure_per_trigger": 0,
+   "mana_per_trigger": {},
+   "damage_per_trigger": 0,
+   "treasure_per_flip_win": 0,
+   "trigger_cause": null,
+   "fires_on_copy": false,
+   "blue_pips": 0,
+   "is_instant_or_sorcery": true,
+   "is_permanent": false,
+   "is_shaman_or_wizard": false,
+   "has_value_trigger": false
+  },
+  "Imperial Recruiter": {
+   "name": "Imperial Recruiter",
+   "types": [
+    "creature"
+   ],
+   "cost": {
+    "R": 1,
+    "generic": 2
+   },
+   "mana_value": 3,
+   "subtypes": [],
+   "is_krark_body": false,
+   "is_trigger_doubler": false,
+   "clones_sakashima_safe": false,
+   "draw_per_trigger": 0,
+   "treasure_per_trigger": 0,
+   "mana_per_trigger": {},
+   "damage_per_trigger": 0,
+   "treasure_per_flip_win": 0,
+   "trigger_cause": null,
+   "fires_on_copy": false,
+   "blue_pips": 0,
+   "is_instant_or_sorcery": false,
+   "is_permanent": true,
+   "is_shaman_or_wizard": false,
+   "has_value_trigger": false
+  },
+  "Island": {
+   "name": "Island",
+   "types": [
+    "land"
+   ],
+   "cost": {},
+   "mana_value": 0,
+   "subtypes": [],
+   "is_krark_body": false,
+   "is_trigger_doubler": false,
+   "clones_sakashima_safe": false,
+   "draw_per_trigger": 0,
+   "treasure_per_trigger": 0,
+   "mana_per_trigger": {},
+   "damage_per_trigger": 0,
+   "treasure_per_flip_win": 0,
+   "trigger_cause": null,
+   "fires_on_copy": false,
+   "blue_pips": 0,
+   "is_instant_or_sorcery": false,
+   "is_permanent": true,
+   "is_shaman_or_wizard": false,
+   "has_value_trigger": false
+  },
+  "Jeska's Will": {
+   "name": "Jeska's Will",
+   "types": [
+    "sorcery"
+   ],
+   "cost": {
+    "R": 1,
+    "generic": 2
+   },
+   "mana_value": 3,
+   "subtypes": [],
+   "is_krark_body": false,
+   "is_trigger_doubler": false,
+   "clones_sakashima_safe": false,
+   "draw_per_trigger": 0,
+   "treasure_per_trigger": 0,
+   "mana_per_trigger": {},
+   "damage_per_trigger": 0,
+   "treasure_per_flip_win": 0,
+   "trigger_cause": null,
+   "fires_on_copy": false,
+   "blue_pips": 0,
+   "is_instant_or_sorcery": true,
+   "is_permanent": false,
+   "is_shaman_or_wizard": false,
+   "has_value_trigger": false
+  },
+  "Krark's Thumb": {
+   "name": "Krark's Thumb",
+   "types": [
+    "artifact"
+   ],
+   "cost": {
+    "generic": 2
+   },
+   "mana_value": 2,
+   "subtypes": [],
+   "is_krark_body": false,
+   "is_trigger_doubler": false,
+   "clones_sakashima_safe": false,
+   "draw_per_trigger": 0,
+   "treasure_per_trigger": 0,
+   "mana_per_trigger": {},
+   "damage_per_trigger": 0,
+   "treasure_per_flip_win": 0,
+   "trigger_cause": null,
+   "fires_on_copy": false,
+   "blue_pips": 0,
+   "is_instant_or_sorcery": false,
+   "is_permanent": true,
+   "is_shaman_or_wizard": false,
+   "has_value_trigger": false
+  },
+  "Krark, the Thumbless": {
+   "name": "Krark, the Thumbless",
+   "types": [
+    "creature"
+   ],
+   "cost": {
+    "R": 1,
+    "generic": 1
+   },
+   "mana_value": 2,
+   "subtypes": [
+    "Goblin",
+    "Wizard"
+   ],
+   "is_krark_body": true,
+   "is_trigger_doubler": false,
+   "clones_sakashima_safe": false,
+   "draw_per_trigger": 0,
+   "treasure_per_trigger": 0,
+   "mana_per_trigger": {},
+   "damage_per_trigger": 0,
+   "treasure_per_flip_win": 0,
+   "trigger_cause": null,
+   "fires_on_copy": false,
+   "blue_pips": 0,
+   "is_instant_or_sorcery": false,
+   "is_permanent": true,
+   "is_shaman_or_wizard": true,
+   "has_value_trigger": false
+  },
+  "Lion's Eye Diamond": {
+   "name": "Lion's Eye Diamond",
+   "types": [
+    "artifact"
+   ],
+   "cost": {
+    "generic": 0
+   },
+   "mana_value": 0,
+   "subtypes": [],
+   "is_krark_body": false,
+   "is_trigger_doubler": false,
+   "clones_sakashima_safe": false,
+   "draw_per_trigger": 0,
+   "treasure_per_trigger": 0,
+   "mana_per_trigger": {},
+   "damage_per_trigger": 0,
+   "treasure_per_flip_win": 0,
+   "trigger_cause": null,
+   "fires_on_copy": false,
+   "blue_pips": 0,
+   "is_instant_or_sorcery": false,
+   "is_permanent": true,
+   "is_shaman_or_wizard": false,
+   "has_value_trigger": false
+  },
+  "Lotus Petal": {
+   "name": "Lotus Petal",
+   "types": [
+    "artifact"
+   ],
+   "cost": {
+    "generic": 0
+   },
+   "mana_value": 0,
+   "subtypes": [],
+   "is_krark_body": false,
+   "is_trigger_doubler": false,
+   "clones_sakashima_safe": false,
+   "draw_per_trigger": 0,
+   "treasure_per_trigger": 0,
+   "mana_per_trigger": {},
+   "damage_per_trigger": 0,
+   "treasure_per_flip_win": 0,
+   "trigger_cause": null,
+   "fires_on_copy": false,
+   "blue_pips": 0,
+   "is_instant_or_sorcery": false,
+   "is_permanent": true,
+   "is_shaman_or_wizard": false,
+   "has_value_trigger": false
+  },
+  "Mana Confluence": {
+   "name": "Mana Confluence",
+   "types": [
+    "land"
+   ],
+   "cost": {},
+   "mana_value": 0,
+   "subtypes": [],
+   "is_krark_body": false,
+   "is_trigger_doubler": false,
+   "clones_sakashima_safe": false,
+   "draw_per_trigger": 0,
+   "treasure_per_trigger": 0,
+   "mana_per_trigger": {},
+   "damage_per_trigger": 0,
+   "treasure_per_flip_win": 0,
+   "trigger_cause": null,
+   "fires_on_copy": false,
+   "blue_pips": 0,
+   "is_instant_or_sorcery": false,
+   "is_permanent": true,
+   "is_shaman_or_wizard": false,
+   "has_value_trigger": false
+  },
+  "Mana Vault": {
+   "name": "Mana Vault",
+   "types": [
+    "artifact"
+   ],
+   "cost": {
+    "generic": 1
+   },
+   "mana_value": 1,
+   "subtypes": [],
+   "is_krark_body": false,
+   "is_trigger_doubler": false,
+   "clones_sakashima_safe": false,
+   "draw_per_trigger": 0,
+   "treasure_per_trigger": 0,
+   "mana_per_trigger": {},
+   "damage_per_trigger": 0,
+   "treasure_per_flip_win": 0,
+   "trigger_cause": null,
+   "fires_on_copy": false,
+   "blue_pips": 0,
+   "is_instant_or_sorcery": false,
+   "is_permanent": true,
+   "is_shaman_or_wizard": false,
+   "has_value_trigger": false
+  },
+  "Mogg Salvage": {
+   "name": "Mogg Salvage",
+   "types": [
+    "instant"
+   ],
+   "cost": {
+    "R": 1,
+    "generic": 2
+   },
+   "mana_value": 3,
+   "subtypes": [],
+   "is_krark_body": false,
+   "is_trigger_doubler": false,
+   "clones_sakashima_safe": false,
+   "draw_per_trigger": 0,
+   "treasure_per_trigger": 0,
+   "mana_per_trigger": {},
+   "damage_per_trigger": 0,
+   "treasure_per_flip_win": 0,
+   "trigger_cause": null,
+   "fires_on_copy": false,
+   "blue_pips": 0,
+   "is_instant_or_sorcery": true,
+   "is_permanent": false,
+   "is_shaman_or_wizard": false,
+   "has_value_trigger": false
+  },
+  "Mountain": {
+   "name": "Mountain",
+   "types": [
+    "land"
+   ],
+   "cost": {},
+   "mana_value": 0,
+   "subtypes": [],
+   "is_krark_body": false,
+   "is_trigger_doubler": false,
+   "clones_sakashima_safe": false,
+   "draw_per_trigger": 0,
+   "treasure_per_trigger": 0,
+   "mana_per_trigger": {},
+   "damage_per_trigger": 0,
+   "treasure_per_flip_win": 0,
+   "trigger_cause": null,
+   "fires_on_copy": false,
+   "blue_pips": 0,
+   "is_instant_or_sorcery": false,
+   "is_permanent": true,
+   "is_shaman_or_wizard": false,
+   "has_value_trigger": false
+  },
+  "Mox Amber": {
+   "name": "Mox Amber",
+   "types": [
+    "artifact"
+   ],
+   "cost": {
+    "generic": 0
+   },
+   "mana_value": 0,
+   "subtypes": [],
+   "is_krark_body": false,
+   "is_trigger_doubler": false,
+   "clones_sakashima_safe": false,
+   "draw_per_trigger": 0,
+   "treasure_per_trigger": 0,
+   "mana_per_trigger": {},
+   "damage_per_trigger": 0,
+   "treasure_per_flip_win": 0,
+   "trigger_cause": null,
+   "fires_on_copy": false,
+   "blue_pips": 0,
+   "is_instant_or_sorcery": false,
+   "is_permanent": true,
+   "is_shaman_or_wizard": false,
+   "has_value_trigger": false
+  },
+  "Mox Diamond": {
+   "name": "Mox Diamond",
+   "types": [
+    "artifact"
+   ],
+   "cost": {
+    "generic": 0
+   },
+   "mana_value": 0,
+   "subtypes": [],
+   "is_krark_body": false,
+   "is_trigger_doubler": false,
+   "clones_sakashima_safe": false,
+   "draw_per_trigger": 0,
+   "treasure_per_trigger": 0,
+   "mana_per_trigger": {},
+   "damage_per_trigger": 0,
+   "treasure_per_flip_win": 0,
+   "trigger_cause": null,
+   "fires_on_copy": false,
+   "blue_pips": 0,
+   "is_instant_or_sorcery": false,
+   "is_permanent": true,
+   "is_shaman_or_wizard": false,
+   "has_value_trigger": false
+  },
+  "Mystic Remora": {
+   "name": "Mystic Remora",
+   "types": [
+    "enchantment"
+   ],
+   "cost": {
+    "U": 1
+   },
+   "mana_value": 1,
+   "subtypes": [],
+   "is_krark_body": false,
+   "is_trigger_doubler": false,
+   "clones_sakashima_safe": false,
+   "draw_per_trigger": 0,
+   "treasure_per_trigger": 0,
+   "mana_per_trigger": {},
+   "damage_per_trigger": 0,
+   "treasure_per_flip_win": 0,
+   "trigger_cause": null,
+   "fires_on_copy": false,
+   "blue_pips": 1,
+   "is_instant_or_sorcery": false,
+   "is_permanent": true,
+   "is_shaman_or_wizard": false,
+   "has_value_trigger": false
+  },
+  "Okaun, Eye of Chaos": {
+   "name": "Okaun, Eye of Chaos",
+   "types": [
+    "creature"
+   ],
+   "cost": {
+    "R": 2,
+    "generic": 3
+   },
+   "mana_value": 5,
+   "subtypes": [],
+   "is_krark_body": false,
+   "is_trigger_doubler": false,
+   "clones_sakashima_safe": false,
+   "draw_per_trigger": 0,
+   "treasure_per_trigger": 0,
+   "mana_per_trigger": {},
+   "damage_per_trigger": 0,
+   "treasure_per_flip_win": 0,
+   "trigger_cause": null,
+   "fires_on_copy": false,
+   "blue_pips": 0,
+   "is_instant_or_sorcery": false,
+   "is_permanent": true,
+   "is_shaman_or_wizard": false,
+   "has_value_trigger": false
+  },
+  "Opt": {
+   "name": "Opt",
+   "types": [
+    "instant"
+   ],
+   "cost": {
+    "U": 1
+   },
+   "mana_value": 1,
+   "subtypes": [],
+   "is_krark_body": false,
+   "is_trigger_doubler": false,
+   "clones_sakashima_safe": false,
+   "draw_per_trigger": 0,
+   "treasure_per_trigger": 0,
+   "mana_per_trigger": {},
+   "damage_per_trigger": 0,
+   "treasure_per_flip_win": 0,
+   "trigger_cause": null,
+   "fires_on_copy": false,
+   "blue_pips": 1,
+   "is_instant_or_sorcery": true,
+   "is_permanent": false,
+   "is_shaman_or_wizard": false,
+   "has_value_trigger": false
+  },
+  "Otawara, Soaring City": {
+   "name": "Otawara, Soaring City",
+   "types": [
+    "land"
+   ],
+   "cost": {},
+   "mana_value": 0,
+   "subtypes": [],
+   "is_krark_body": false,
+   "is_trigger_doubler": false,
+   "clones_sakashima_safe": false,
+   "draw_per_trigger": 0,
+   "treasure_per_trigger": 0,
+   "mana_per_trigger": {},
+   "damage_per_trigger": 0,
+   "treasure_per_flip_win": 0,
+   "trigger_cause": null,
+   "fires_on_copy": false,
+   "blue_pips": 0,
+   "is_instant_or_sorcery": false,
+   "is_permanent": true,
+   "is_shaman_or_wizard": false,
+   "has_value_trigger": false
+  },
+  "Pact of Negation": {
+   "name": "Pact of Negation",
+   "types": [
+    "instant"
+   ],
+   "cost": {
+    "generic": 0
+   },
+   "mana_value": 0,
+   "subtypes": [],
+   "is_krark_body": false,
+   "is_trigger_doubler": false,
+   "clones_sakashima_safe": false,
+   "draw_per_trigger": 0,
+   "treasure_per_trigger": 0,
+   "mana_per_trigger": {},
+   "damage_per_trigger": 0,
+   "treasure_per_flip_win": 0,
+   "trigger_cause": null,
+   "fires_on_copy": false,
+   "blue_pips": 0,
+   "is_instant_or_sorcery": true,
+   "is_permanent": false,
+   "is_shaman_or_wizard": false,
+   "has_value_trigger": false
+  },
+  "Peek": {
+   "name": "Peek",
+   "types": [
+    "instant"
+   ],
+   "cost": {
+    "U": 1
+   },
+   "mana_value": 1,
+   "subtypes": [],
+   "is_krark_body": false,
+   "is_trigger_doubler": false,
+   "clones_sakashima_safe": false,
+   "draw_per_trigger": 0,
+   "treasure_per_trigger": 0,
+   "mana_per_trigger": {},
+   "damage_per_trigger": 0,
+   "treasure_per_flip_win": 0,
+   "trigger_cause": null,
+   "fires_on_copy": false,
+   "blue_pips": 1,
+   "is_instant_or_sorcery": true,
+   "is_permanent": false,
+   "is_shaman_or_wizard": false,
+   "has_value_trigger": false
+  },
+  "Phantasmal Image": {
+   "name": "Phantasmal Image",
+   "types": [
+    "creature"
+   ],
+   "cost": {
+    "U": 1,
+    "generic": 1
+   },
+   "mana_value": 2,
+   "subtypes": [],
+   "is_krark_body": false,
+   "is_trigger_doubler": false,
+   "clones_sakashima_safe": false,
+   "draw_per_trigger": 0,
+   "treasure_per_trigger": 0,
+   "mana_per_trigger": {},
+   "damage_per_trigger": 0,
+   "treasure_per_flip_win": 0,
+   "trigger_cause": null,
+   "fires_on_copy": false,
+   "blue_pips": 1,
+   "is_instant_or_sorcery": false,
+   "is_permanent": true,
+   "is_shaman_or_wizard": false,
+   "has_value_trigger": false
+  },
+  "Ponder": {
+   "name": "Ponder",
+   "types": [
+    "sorcery"
+   ],
+   "cost": {
+    "U": 1
+   },
+   "mana_value": 1,
+   "subtypes": [],
+   "is_krark_body": false,
+   "is_trigger_doubler": false,
+   "clones_sakashima_safe": false,
+   "draw_per_trigger": 0,
+   "treasure_per_trigger": 0,
+   "mana_per_trigger": {},
+   "damage_per_trigger": 0,
+   "treasure_per_flip_win": 0,
+   "trigger_cause": null,
+   "fires_on_copy": false,
+   "blue_pips": 1,
+   "is_instant_or_sorcery": true,
+   "is_permanent": false,
+   "is_shaman_or_wizard": false,
+   "has_value_trigger": false
+  },
+  "Preordain": {
+   "name": "Preordain",
+   "types": [
+    "sorcery"
+   ],
+   "cost": {
+    "U": 1
+   },
+   "mana_value": 1,
+   "subtypes": [],
+   "is_krark_body": false,
+   "is_trigger_doubler": false,
+   "clones_sakashima_safe": false,
+   "draw_per_trigger": 0,
+   "treasure_per_trigger": 0,
+   "mana_per_trigger": {},
+   "damage_per_trigger": 0,
+   "treasure_per_flip_win": 0,
+   "trigger_cause": null,
+   "fires_on_copy": false,
+   "blue_pips": 1,
+   "is_instant_or_sorcery": true,
+   "is_permanent": false,
+   "is_shaman_or_wizard": false,
+   "has_value_trigger": false
+  },
+  "Pyretic Ritual": {
+   "name": "Pyretic Ritual",
+   "types": [
+    "instant"
+   ],
+   "cost": {
+    "R": 2,
+    "generic": 1
+   },
+   "mana_value": 3,
+   "subtypes": [],
+   "is_krark_body": false,
+   "is_trigger_doubler": false,
+   "clones_sakashima_safe": false,
+   "draw_per_trigger": 0,
+   "treasure_per_trigger": 0,
+   "mana_per_trigger": {},
+   "damage_per_trigger": 0,
+   "treasure_per_flip_win": 0,
+   "trigger_cause": null,
+   "fires_on_copy": false,
+   "blue_pips": 0,
+   "is_instant_or_sorcery": true,
+   "is_permanent": false,
+   "is_shaman_or_wizard": false,
+   "has_value_trigger": false
+  },
+  "Quasiduplicate": {
+   "name": "Quasiduplicate",
+   "types": [
+    "sorcery"
+   ],
+   "cost": {
+    "U": 2,
+    "generic": 1
+   },
+   "mana_value": 3,
+   "subtypes": [],
+   "is_krark_body": false,
+   "is_trigger_doubler": false,
+   "clones_sakashima_safe": false,
+   "draw_per_trigger": 0,
+   "treasure_per_trigger": 0,
+   "mana_per_trigger": {},
+   "damage_per_trigger": 0,
+   "treasure_per_flip_win": 0,
+   "trigger_cause": null,
+   "fires_on_copy": false,
+   "blue_pips": 2,
+   "is_instant_or_sorcery": true,
+   "is_permanent": false,
+   "is_shaman_or_wizard": false,
+   "has_value_trigger": false
+  },
+  "Ragavan, Nimble Pilferer": {
+   "name": "Ragavan, Nimble Pilferer",
+   "types": [
+    "creature"
+   ],
+   "cost": {
+    "R": 1
+   },
+   "mana_value": 1,
+   "subtypes": [],
+   "is_krark_body": false,
+   "is_trigger_doubler": false,
+   "clones_sakashima_safe": false,
+   "draw_per_trigger": 0,
+   "treasure_per_trigger": 0,
+   "mana_per_trigger": {},
+   "damage_per_trigger": 0,
+   "treasure_per_flip_win": 0,
+   "trigger_cause": null,
+   "fires_on_copy": false,
+   "blue_pips": 0,
+   "is_instant_or_sorcery": false,
+   "is_permanent": true,
+   "is_shaman_or_wizard": false,
+   "has_value_trigger": false
+  },
+  "Relic of Legends": {
+   "name": "Relic of Legends",
+   "types": [
+    "artifact"
+   ],
+   "cost": {
+    "generic": 3
+   },
+   "mana_value": 3,
+   "subtypes": [],
+   "is_krark_body": false,
+   "is_trigger_doubler": false,
+   "clones_sakashima_safe": false,
+   "draw_per_trigger": 0,
+   "treasure_per_trigger": 0,
+   "mana_per_trigger": {},
+   "damage_per_trigger": 0,
+   "treasure_per_flip_win": 0,
+   "trigger_cause": null,
+   "fires_on_copy": false,
+   "blue_pips": 0,
+   "is_instant_or_sorcery": false,
+   "is_permanent": true,
+   "is_shaman_or_wizard": false,
+   "has_value_trigger": false
+  },
+  "Rhystic Study": {
+   "name": "Rhystic Study",
+   "types": [
+    "enchantment"
+   ],
+   "cost": {
+    "U": 1,
+    "generic": 2
+   },
+   "mana_value": 3,
+   "subtypes": [],
+   "is_krark_body": false,
+   "is_trigger_doubler": false,
+   "clones_sakashima_safe": false,
+   "draw_per_trigger": 0,
+   "treasure_per_trigger": 0,
+   "mana_per_trigger": {},
+   "damage_per_trigger": 0,
+   "treasure_per_flip_win": 0,
+   "trigger_cause": null,
+   "fires_on_copy": false,
+   "blue_pips": 1,
+   "is_instant_or_sorcery": false,
+   "is_permanent": true,
+   "is_shaman_or_wizard": false,
+   "has_value_trigger": false
+  },
+  "Rite of Flame": {
+   "name": "Rite of Flame",
+   "types": [
+    "sorcery"
+   ],
+   "cost": {
+    "R": 1
+   },
+   "mana_value": 1,
+   "subtypes": [],
+   "is_krark_body": false,
+   "is_trigger_doubler": false,
+   "clones_sakashima_safe": false,
+   "draw_per_trigger": 0,
+   "treasure_per_trigger": 0,
+   "mana_per_trigger": {},
+   "damage_per_trigger": 0,
+   "treasure_per_flip_win": 0,
+   "trigger_cause": null,
+   "fires_on_copy": false,
+   "blue_pips": 0,
+   "is_instant_or_sorcery": true,
+   "is_permanent": false,
+   "is_shaman_or_wizard": false,
+   "has_value_trigger": false
+  },
+  "Sakashima of a Thousand Faces": {
+   "name": "Sakashima of a Thousand Faces",
+   "types": [
+    "creature"
+   ],
+   "cost": {
+    "U": 1,
+    "generic": 3
+   },
+   "mana_value": 4,
+   "subtypes": [],
+   "is_krark_body": false,
+   "is_trigger_doubler": false,
+   "clones_sakashima_safe": true,
+   "draw_per_trigger": 0,
+   "treasure_per_trigger": 0,
+   "mana_per_trigger": {},
+   "damage_per_trigger": 0,
+   "treasure_per_flip_win": 0,
+   "trigger_cause": null,
+   "fires_on_copy": false,
+   "blue_pips": 1,
+   "is_instant_or_sorcery": false,
+   "is_permanent": true,
+   "is_shaman_or_wizard": false,
+   "has_value_trigger": false
+  },
+  "Seat of the Synod": {
+   "name": "Seat of the Synod",
+   "types": [
+    "land"
+   ],
+   "cost": {},
+   "mana_value": 0,
+   "subtypes": [],
+   "is_krark_body": false,
+   "is_trigger_doubler": false,
+   "clones_sakashima_safe": false,
+   "draw_per_trigger": 0,
+   "treasure_per_trigger": 0,
+   "mana_per_trigger": {},
+   "damage_per_trigger": 0,
+   "treasure_per_flip_win": 0,
+   "trigger_cause": null,
+   "fires_on_copy": false,
+   "blue_pips": 0,
+   "is_instant_or_sorcery": false,
+   "is_permanent": true,
+   "is_shaman_or_wizard": false,
+   "has_value_trigger": false
+  },
+  "Serum Visions": {
+   "name": "Serum Visions",
+   "types": [
+    "sorcery"
+   ],
+   "cost": {
+    "U": 1
+   },
+   "mana_value": 1,
+   "subtypes": [],
+   "is_krark_body": false,
+   "is_trigger_doubler": false,
+   "clones_sakashima_safe": false,
+   "draw_per_trigger": 0,
+   "treasure_per_trigger": 0,
+   "mana_per_trigger": {},
+   "damage_per_trigger": 0,
+   "treasure_per_flip_win": 0,
+   "trigger_cause": null,
+   "fires_on_copy": false,
+   "blue_pips": 1,
+   "is_instant_or_sorcery": true,
+   "is_permanent": false,
+   "is_shaman_or_wizard": false,
+   "has_value_trigger": false
+  },
+  "Shivan Reef": {
+   "name": "Shivan Reef",
+   "types": [
+    "land"
+   ],
+   "cost": {},
+   "mana_value": 0,
+   "subtypes": [],
+   "is_krark_body": false,
+   "is_trigger_doubler": false,
+   "clones_sakashima_safe": false,
+   "draw_per_trigger": 0,
+   "treasure_per_trigger": 0,
+   "mana_per_trigger": {},
+   "damage_per_trigger": 0,
+   "treasure_per_flip_win": 0,
+   "trigger_cause": null,
+   "fires_on_copy": false,
+   "blue_pips": 0,
+   "is_instant_or_sorcery": false,
+   "is_permanent": true,
+   "is_shaman_or_wizard": false,
+   "has_value_trigger": false
+  },
+  "Snap": {
+   "name": "Snap",
+   "types": [
+    "instant"
+   ],
+   "cost": {
+    "U": 1,
+    "generic": 1
+   },
+   "mana_value": 2,
+   "subtypes": [],
+   "is_krark_body": false,
+   "is_trigger_doubler": false,
+   "clones_sakashima_safe": false,
+   "draw_per_trigger": 0,
+   "treasure_per_trigger": 0,
+   "mana_per_trigger": {},
+   "damage_per_trigger": 0,
+   "treasure_per_flip_win": 0,
+   "trigger_cause": null,
+   "fires_on_copy": false,
+   "blue_pips": 1,
+   "is_instant_or_sorcery": true,
+   "is_permanent": false,
+   "is_shaman_or_wizard": false,
+   "has_value_trigger": false
+  },
+  "Snapcaster Mage": {
+   "name": "Snapcaster Mage",
+   "types": [
+    "creature"
+   ],
+   "cost": {
+    "U": 1,
+    "generic": 1
+   },
+   "mana_value": 2,
+   "subtypes": [],
+   "is_krark_body": false,
+   "is_trigger_doubler": false,
+   "clones_sakashima_safe": false,
+   "draw_per_trigger": 0,
+   "treasure_per_trigger": 0,
+   "mana_per_trigger": {},
+   "damage_per_trigger": 0,
+   "treasure_per_flip_win": 0,
+   "trigger_cause": null,
+   "fires_on_copy": false,
+   "blue_pips": 1,
+   "is_instant_or_sorcery": false,
+   "is_permanent": true,
+   "is_shaman_or_wizard": false,
+   "has_value_trigger": false
+  },
+  "Sol Ring": {
+   "name": "Sol Ring",
+   "types": [
+    "artifact"
+   ],
+   "cost": {
+    "generic": 1
+   },
+   "mana_value": 1,
+   "subtypes": [],
+   "is_krark_body": false,
+   "is_trigger_doubler": false,
+   "clones_sakashima_safe": false,
+   "draw_per_trigger": 0,
+   "treasure_per_trigger": 0,
+   "mana_per_trigger": {},
+   "damage_per_trigger": 0,
+   "treasure_per_flip_win": 0,
+   "trigger_cause": null,
+   "fires_on_copy": false,
+   "blue_pips": 0,
+   "is_instant_or_sorcery": false,
+   "is_permanent": true,
+   "is_shaman_or_wizard": false,
+   "has_value_trigger": false
+  },
+  "Spellseeker": {
+   "name": "Spellseeker",
+   "types": [
+    "creature"
+   ],
+   "cost": {
+    "U": 1,
+    "generic": 2
+   },
+   "mana_value": 3,
+   "subtypes": [],
+   "is_krark_body": false,
+   "is_trigger_doubler": false,
+   "clones_sakashima_safe": false,
+   "draw_per_trigger": 0,
+   "treasure_per_trigger": 0,
+   "mana_per_trigger": {},
+   "damage_per_trigger": 0,
+   "treasure_per_flip_win": 0,
+   "trigger_cause": null,
+   "fires_on_copy": false,
+   "blue_pips": 1,
+   "is_instant_or_sorcery": false,
+   "is_permanent": true,
+   "is_shaman_or_wizard": false,
+   "has_value_trigger": false
+  },
+  "Springleaf Drum": {
+   "name": "Springleaf Drum",
+   "types": [
+    "artifact"
+   ],
+   "cost": {
+    "generic": 1
+   },
+   "mana_value": 1,
+   "subtypes": [],
+   "is_krark_body": false,
+   "is_trigger_doubler": false,
+   "clones_sakashima_safe": false,
+   "draw_per_trigger": 0,
+   "treasure_per_trigger": 0,
+   "mana_per_trigger": {},
+   "damage_per_trigger": 0,
+   "treasure_per_flip_win": 0,
+   "trigger_cause": null,
+   "fires_on_copy": false,
+   "blue_pips": 0,
+   "is_instant_or_sorcery": false,
+   "is_permanent": true,
+   "is_shaman_or_wizard": false,
+   "has_value_trigger": false
+  },
+  "Storm-Kiln Artist": {
+   "name": "Storm-Kiln Artist",
+   "types": [
+    "creature"
+   ],
+   "cost": {
+    "R": 1,
+    "generic": 3
+   },
+   "mana_value": 4,
+   "subtypes": [
+    "Dwarf",
+    "Shaman"
+   ],
+   "is_krark_body": false,
+   "is_trigger_doubler": false,
+   "clones_sakashima_safe": false,
+   "draw_per_trigger": 0,
+   "treasure_per_trigger": 1,
+   "mana_per_trigger": {},
+   "damage_per_trigger": 0,
+   "treasure_per_flip_win": 0,
+   "trigger_cause": "is_cast_or_copy",
+   "fires_on_copy": true,
+   "blue_pips": 0,
+   "is_instant_or_sorcery": false,
+   "is_permanent": true,
+   "is_shaman_or_wizard": true,
+   "has_value_trigger": true
+  },
+  "Strike It Rich": {
+   "name": "Strike It Rich",
+   "types": [
+    "sorcery"
+   ],
+   "cost": {
+    "R": 1
+   },
+   "mana_value": 1,
+   "subtypes": [],
+   "is_krark_body": false,
+   "is_trigger_doubler": false,
+   "clones_sakashima_safe": false,
+   "draw_per_trigger": 0,
+   "treasure_per_trigger": 0,
+   "mana_per_trigger": {},
+   "damage_per_trigger": 0,
+   "treasure_per_flip_win": 0,
+   "trigger_cause": null,
+   "fires_on_copy": false,
+   "blue_pips": 0,
+   "is_instant_or_sorcery": true,
+   "is_permanent": false,
+   "is_shaman_or_wizard": false,
+   "has_value_trigger": false
+  },
+  "Subtlety": {
+   "name": "Subtlety",
+   "types": [
+    "creature"
+   ],
+   "cost": {
+    "U": 2,
+    "generic": 2
+   },
+   "mana_value": 4,
+   "subtypes": [],
+   "is_krark_body": false,
+   "is_trigger_doubler": false,
+   "clones_sakashima_safe": false,
+   "draw_per_trigger": 0,
+   "treasure_per_trigger": 0,
+   "mana_per_trigger": {},
+   "damage_per_trigger": 0,
+   "treasure_per_flip_win": 0,
+   "trigger_cause": null,
+   "fires_on_copy": false,
+   "blue_pips": 2,
+   "is_instant_or_sorcery": false,
+   "is_permanent": true,
+   "is_shaman_or_wizard": false,
+   "has_value_trigger": false
+  },
+  "Sulfur Falls": {
+   "name": "Sulfur Falls",
+   "types": [
+    "land"
+   ],
+   "cost": {},
+   "mana_value": 0,
+   "subtypes": [],
+   "is_krark_body": false,
+   "is_trigger_doubler": false,
+   "clones_sakashima_safe": false,
+   "draw_per_trigger": 0,
+   "treasure_per_trigger": 0,
+   "mana_per_trigger": {},
+   "damage_per_trigger": 0,
+   "treasure_per_flip_win": 0,
+   "trigger_cause": null,
+   "fires_on_copy": false,
+   "blue_pips": 0,
+   "is_instant_or_sorcery": false,
+   "is_permanent": true,
+   "is_shaman_or_wizard": false,
+   "has_value_trigger": false
+  },
+  "Tavern Scoundrel": {
+   "name": "Tavern Scoundrel",
+   "types": [
+    "creature"
+   ],
+   "cost": {
+    "R": 1,
+    "generic": 1
+   },
+   "mana_value": 2,
+   "subtypes": [],
+   "is_krark_body": false,
+   "is_trigger_doubler": false,
+   "clones_sakashima_safe": false,
+   "draw_per_trigger": 0,
+   "treasure_per_trigger": 0,
+   "mana_per_trigger": {},
+   "damage_per_trigger": 0,
+   "treasure_per_flip_win": 2,
+   "trigger_cause": "coin_flip_win",
+   "fires_on_copy": false,
+   "blue_pips": 0,
+   "is_instant_or_sorcery": false,
+   "is_permanent": true,
+   "is_shaman_or_wizard": false,
+   "has_value_trigger": true
+  },
+  "Thassa's Oracle": {
+   "name": "Thassa's Oracle",
+   "types": [
+    "creature"
+   ],
+   "cost": {
+    "U": 2
+   },
+   "mana_value": 2,
+   "subtypes": [],
+   "is_krark_body": false,
+   "is_trigger_doubler": false,
+   "clones_sakashima_safe": false,
+   "draw_per_trigger": 0,
+   "treasure_per_trigger": 0,
+   "mana_per_trigger": {},
+   "damage_per_trigger": 0,
+   "treasure_per_flip_win": 0,
+   "trigger_cause": null,
+   "fires_on_copy": false,
+   "blue_pips": 2,
+   "is_instant_or_sorcery": false,
+   "is_permanent": true,
+   "is_shaman_or_wizard": false,
+   "has_value_trigger": false
+  },
+  "The One Ring": {
+   "name": "The One Ring",
+   "types": [
+    "artifact"
+   ],
+   "cost": {
+    "generic": 4
+   },
+   "mana_value": 4,
+   "subtypes": [],
+   "is_krark_body": false,
+   "is_trigger_doubler": false,
+   "clones_sakashima_safe": false,
+   "draw_per_trigger": 0,
+   "treasure_per_trigger": 0,
+   "mana_per_trigger": {},
+   "damage_per_trigger": 0,
+   "treasure_per_flip_win": 0,
+   "trigger_cause": null,
+   "fires_on_copy": false,
+   "blue_pips": 0,
+   "is_instant_or_sorcery": false,
+   "is_permanent": true,
+   "is_shaman_or_wizard": false,
+   "has_value_trigger": false
+  },
+  "Twinflame": {
+   "name": "Twinflame",
+   "types": [
+    "sorcery"
+   ],
+   "cost": {
+    "R": 1,
+    "generic": 1
+   },
+   "mana_value": 2,
+   "subtypes": [],
+   "is_krark_body": false,
+   "is_trigger_doubler": false,
+   "clones_sakashima_safe": false,
+   "draw_per_trigger": 0,
+   "treasure_per_trigger": 0,
+   "mana_per_trigger": {},
+   "damage_per_trigger": 0,
+   "treasure_per_flip_win": 0,
+   "trigger_cause": null,
+   "fires_on_copy": false,
+   "blue_pips": 0,
+   "is_instant_or_sorcery": true,
+   "is_permanent": false,
+   "is_shaman_or_wizard": false,
+   "has_value_trigger": false
+  },
+  "Underworld Breach": {
+   "name": "Underworld Breach",
+   "types": [
+    "enchantment"
+   ],
+   "cost": {
+    "R": 1,
+    "generic": 1
+   },
+   "mana_value": 2,
+   "subtypes": [],
+   "is_krark_body": false,
+   "is_trigger_doubler": false,
+   "clones_sakashima_safe": false,
+   "draw_per_trigger": 0,
+   "treasure_per_trigger": 0,
+   "mana_per_trigger": {},
+   "damage_per_trigger": 0,
+   "treasure_per_flip_win": 0,
+   "trigger_cause": null,
+   "fires_on_copy": false,
+   "blue_pips": 0,
+   "is_instant_or_sorcery": false,
+   "is_permanent": true,
+   "is_shaman_or_wizard": false,
+   "has_value_trigger": false
+  },
+  "Urabrask": {
+   "name": "Urabrask",
+   "types": [
+    "creature"
+   ],
+   "cost": {
+    "R": 2,
+    "generic": 2
+   },
+   "mana_value": 4,
+   "subtypes": [
+    "Phyrexian",
+    "Praetor"
+   ],
+   "is_krark_body": false,
+   "is_trigger_doubler": false,
+   "clones_sakashima_safe": false,
+   "draw_per_trigger": 0,
+   "treasure_per_trigger": 0,
+   "mana_per_trigger": {
+    "R": 1
+   },
+   "damage_per_trigger": 1,
+   "treasure_per_flip_win": 0,
+   "trigger_cause": "is_cast",
+   "fires_on_copy": false,
+   "blue_pips": 0,
+   "is_instant_or_sorcery": false,
+   "is_permanent": true,
+   "is_shaman_or_wizard": false,
+   "has_value_trigger": true
+  },
+  "Valley Floodcaller": {
+   "name": "Valley Floodcaller",
+   "types": [
+    "creature"
+   ],
+   "cost": {
+    "U": 1,
+    "generic": 1
+   },
+   "mana_value": 2,
+   "subtypes": [],
+   "is_krark_body": false,
+   "is_trigger_doubler": false,
+   "clones_sakashima_safe": false,
+   "draw_per_trigger": 0,
+   "treasure_per_trigger": 0,
+   "mana_per_trigger": {},
+   "damage_per_trigger": 0,
+   "treasure_per_flip_win": 0,
+   "trigger_cause": null,
+   "fires_on_copy": false,
+   "blue_pips": 1,
+   "is_instant_or_sorcery": false,
+   "is_permanent": true,
+   "is_shaman_or_wizard": false,
+   "has_value_trigger": false
+  },
+  "Veyran, Voice of Duality": {
+   "name": "Veyran, Voice of Duality",
+   "types": [
+    "creature"
+   ],
+   "cost": {
+    "R": 1,
+    "U": 1,
+    "generic": 1
+   },
+   "mana_value": 3,
+   "subtypes": [
+    "Human",
+    "Wizard"
+   ],
+   "is_krark_body": false,
+   "is_trigger_doubler": true,
+   "clones_sakashima_safe": false,
+   "draw_per_trigger": 0,
+   "treasure_per_trigger": 0,
+   "mana_per_trigger": {},
+   "damage_per_trigger": 0,
+   "treasure_per_flip_win": 0,
+   "trigger_cause": null,
+   "fires_on_copy": false,
+   "blue_pips": 1,
+   "is_instant_or_sorcery": false,
+   "is_permanent": true,
+   "is_shaman_or_wizard": true,
+   "has_value_trigger": false
+  },
+  "Vivi Ornitier": {
+   "name": "Vivi Ornitier",
+   "types": [
+    "creature"
+   ],
+   "cost": {
+    "R": 1,
+    "U": 1,
+    "generic": 1
+   },
+   "mana_value": 3,
+   "subtypes": [
+    "Wizard"
+   ],
+   "is_krark_body": false,
+   "is_trigger_doubler": false,
+   "clones_sakashima_safe": false,
+   "draw_per_trigger": 0,
+   "treasure_per_trigger": 0,
+   "mana_per_trigger": {
+    "*": 1
+   },
+   "damage_per_trigger": 3,
+   "treasure_per_flip_win": 0,
+   "trigger_cause": "is_cast",
+   "fires_on_copy": false,
+   "blue_pips": 1,
+   "is_instant_or_sorcery": false,
+   "is_permanent": true,
+   "is_shaman_or_wizard": true,
+   "has_value_trigger": true
+  },
+  "Volcanic Island": {
+   "name": "Volcanic Island",
+   "types": [
+    "land"
+   ],
+   "cost": {},
+   "mana_value": 0,
+   "subtypes": [],
+   "is_krark_body": false,
+   "is_trigger_doubler": false,
+   "clones_sakashima_safe": false,
+   "draw_per_trigger": 0,
+   "treasure_per_trigger": 0,
+   "mana_per_trigger": {},
+   "damage_per_trigger": 0,
+   "treasure_per_flip_win": 0,
+   "trigger_cause": null,
+   "fires_on_copy": false,
+   "blue_pips": 0,
+   "is_instant_or_sorcery": false,
+   "is_permanent": true,
+   "is_shaman_or_wizard": false,
+   "has_value_trigger": false
+  },
+  "Zndrsplt, Eye of Wisdom": {
+   "name": "Zndrsplt, Eye of Wisdom",
+   "types": [
+    "creature"
+   ],
+   "cost": {
+    "U": 1,
+    "generic": 4
+   },
+   "mana_value": 5,
+   "subtypes": [],
+   "is_krark_body": false,
+   "is_trigger_doubler": false,
+   "clones_sakashima_safe": false,
+   "draw_per_trigger": 1,
+   "treasure_per_trigger": 0,
+   "mana_per_trigger": {},
+   "damage_per_trigger": 0,
+   "treasure_per_flip_win": 0,
+   "trigger_cause": "coin_flip_win",
+   "fires_on_copy": false,
+   "blue_pips": 1,
+   "is_instant_or_sorcery": false,
+   "is_permanent": true,
+   "is_shaman_or_wizard": false,
+   "has_value_trigger": true
+  }
+ },
+ "targeting": {
+  "An Offer You Can't Refuse": {
+   "no_target": true,
+   "free_counter": false,
+   "needs_own_creature": false
+  },
+  "Ancient Tomb": {
+   "no_target": false,
+   "free_counter": false,
+   "needs_own_creature": false
+  },
+  "Arcane Signet": {
+   "no_target": false,
+   "free_counter": false,
+   "needs_own_creature": false
+  },
+  "Archmage Emeritus": {
+   "no_target": false,
+   "free_counter": false,
+   "needs_own_creature": false
+  },
+  "Baral, Chief of Compliance": {
+   "no_target": false,
+   "free_counter": false,
+   "needs_own_creature": false
+  },
+  "Birgi, God of Storytelling": {
+   "no_target": false,
+   "free_counter": false,
+   "needs_own_creature": false
+  },
+  "Borne Upon a Wind": {
+   "no_target": false,
+   "free_counter": false,
+   "needs_own_creature": false
+  },
+  "Brain Freeze": {
+   "no_target": false,
+   "free_counter": false,
+   "needs_own_creature": false
+  },
+  "Brainstorm": {
+   "no_target": false,
+   "free_counter": false,
+   "needs_own_creature": false
+  },
+  "Chrome Mox": {
+   "no_target": false,
+   "free_counter": false,
+   "needs_own_creature": false
+  },
+  "Command Tower": {
+   "no_target": false,
+   "free_counter": false,
+   "needs_own_creature": false
+  },
+  "Consider": {
+   "no_target": false,
+   "free_counter": false,
+   "needs_own_creature": false
+  },
+  "Cyclonic Rift": {
+   "no_target": true,
+   "free_counter": false,
+   "needs_own_creature": false
+  },
+  "Defense Grid": {
+   "no_target": false,
+   "free_counter": false,
+   "needs_own_creature": false
+  },
+  "Deflecting Swat": {
+   "no_target": false,
+   "free_counter": true,
+   "needs_own_creature": false
+  },
+  "Desperate Ritual": {
+   "no_target": false,
+   "free_counter": false,
+   "needs_own_creature": false
+  },
+  "Dualcaster Mage": {
+   "no_target": false,
+   "free_counter": false,
+   "needs_own_creature": false
+  },
+  "Fierce Guardianship": {
+   "no_target": true,
+   "free_counter": false,
+   "needs_own_creature": false
+  },
+  "Flusterstorm": {
+   "no_target": false,
+   "free_counter": false,
+   "needs_own_creature": false
+  },
+  "Force of Will": {
+   "no_target": true,
+   "free_counter": false,
+   "needs_own_creature": false
+  },
+  "Frantic Search": {
+   "no_target": false,
+   "free_counter": false,
+   "needs_own_creature": false
+  },
+  "Gale, Waterdeep Prodigy": {
+   "no_target": false,
+   "free_counter": false,
+   "needs_own_creature": false
+  },
+  "Gamble": {
+   "no_target": false,
+   "free_counter": false,
+   "needs_own_creature": false
+  },
+  "Gitaxian Probe": {
+   "no_target": false,
+   "free_counter": false,
+   "needs_own_creature": false
+  },
+  "Glasspool Mimic": {
+   "no_target": false,
+   "free_counter": false,
+   "needs_own_creature": false
+  },
+  "Grapeshot": {
+   "no_target": false,
+   "free_counter": false,
+   "needs_own_creature": false
+  },
+  "Great Furnace": {
+   "no_target": false,
+   "free_counter": false,
+   "needs_own_creature": false
+  },
+  "Gut Shot": {
+   "no_target": false,
+   "free_counter": false,
+   "needs_own_creature": false
+  },
+  "Harmonic Prodigy": {
+   "no_target": false,
+   "free_counter": false,
+   "needs_own_creature": false
+  },
+  "Heat Shimmer": {
+   "no_target": false,
+   "free_counter": false,
+   "needs_own_creature": true
+  },
+  "Imperial Recruiter": {
+   "no_target": false,
+   "free_counter": false,
+   "needs_own_creature": false
+  },
+  "Island": {
+   "no_target": false,
+   "free_counter": false,
+   "needs_own_creature": false
+  },
+  "Jeska's Will": {
+   "no_target": false,
+   "free_counter": false,
+   "needs_own_creature": false
+  },
+  "Krark's Thumb": {
+   "no_target": false,
+   "free_counter": false,
+   "needs_own_creature": false
+  },
+  "Krark, the Thumbless": {
+   "no_target": false,
+   "free_counter": false,
+   "needs_own_creature": false
+  },
+  "Lion's Eye Diamond": {
+   "no_target": false,
+   "free_counter": false,
+   "needs_own_creature": false
+  },
+  "Lotus Petal": {
+   "no_target": false,
+   "free_counter": false,
+   "needs_own_creature": false
+  },
+  "Mana Confluence": {
+   "no_target": false,
+   "free_counter": false,
+   "needs_own_creature": false
+  },
+  "Mana Vault": {
+   "no_target": false,
+   "free_counter": false,
+   "needs_own_creature": false
+  },
+  "Mogg Salvage": {
+   "no_target": true,
+   "free_counter": false,
+   "needs_own_creature": false
+  },
+  "Mountain": {
+   "no_target": false,
+   "free_counter": false,
+   "needs_own_creature": false
+  },
+  "Mox Amber": {
+   "no_target": false,
+   "free_counter": false,
+   "needs_own_creature": false
+  },
+  "Mox Diamond": {
+   "no_target": false,
+   "free_counter": false,
+   "needs_own_creature": false
+  },
+  "Mystic Remora": {
+   "no_target": false,
+   "free_counter": false,
+   "needs_own_creature": false
+  },
+  "Okaun, Eye of Chaos": {
+   "no_target": false,
+   "free_counter": false,
+   "needs_own_creature": false
+  },
+  "Opt": {
+   "no_target": false,
+   "free_counter": false,
+   "needs_own_creature": false
+  },
+  "Otawara, Soaring City": {
+   "no_target": false,
+   "free_counter": false,
+   "needs_own_creature": false
+  },
+  "Pact of Negation": {
+   "no_target": true,
+   "free_counter": false,
+   "needs_own_creature": false
+  },
+  "Peek": {
+   "no_target": false,
+   "free_counter": false,
+   "needs_own_creature": false
+  },
+  "Phantasmal Image": {
+   "no_target": false,
+   "free_counter": false,
+   "needs_own_creature": false
+  },
+  "Ponder": {
+   "no_target": false,
+   "free_counter": false,
+   "needs_own_creature": false
+  },
+  "Preordain": {
+   "no_target": false,
+   "free_counter": false,
+   "needs_own_creature": false
+  },
+  "Pyretic Ritual": {
+   "no_target": false,
+   "free_counter": false,
+   "needs_own_creature": false
+  },
+  "Quasiduplicate": {
+   "no_target": false,
+   "free_counter": false,
+   "needs_own_creature": true
+  },
+  "Ragavan, Nimble Pilferer": {
+   "no_target": false,
+   "free_counter": false,
+   "needs_own_creature": false
+  },
+  "Relic of Legends": {
+   "no_target": false,
+   "free_counter": false,
+   "needs_own_creature": false
+  },
+  "Rhystic Study": {
+   "no_target": false,
+   "free_counter": false,
+   "needs_own_creature": false
+  },
+  "Rite of Flame": {
+   "no_target": false,
+   "free_counter": false,
+   "needs_own_creature": false
+  },
+  "Sakashima of a Thousand Faces": {
+   "no_target": false,
+   "free_counter": false,
+   "needs_own_creature": false
+  },
+  "Seat of the Synod": {
+   "no_target": false,
+   "free_counter": false,
+   "needs_own_creature": false
+  },
+  "Serum Visions": {
+   "no_target": false,
+   "free_counter": false,
+   "needs_own_creature": false
+  },
+  "Shivan Reef": {
+   "no_target": false,
+   "free_counter": false,
+   "needs_own_creature": false
+  },
+  "Snap": {
+   "no_target": false,
+   "free_counter": false,
+   "needs_own_creature": true
+  },
+  "Snapcaster Mage": {
+   "no_target": false,
+   "free_counter": false,
+   "needs_own_creature": false
+  },
+  "Sol Ring": {
+   "no_target": false,
+   "free_counter": false,
+   "needs_own_creature": false
+  },
+  "Spellseeker": {
+   "no_target": false,
+   "free_counter": false,
+   "needs_own_creature": false
+  },
+  "Springleaf Drum": {
+   "no_target": false,
+   "free_counter": false,
+   "needs_own_creature": false
+  },
+  "Storm-Kiln Artist": {
+   "no_target": false,
+   "free_counter": false,
+   "needs_own_creature": false
+  },
+  "Strike It Rich": {
+   "no_target": false,
+   "free_counter": false,
+   "needs_own_creature": false
+  },
+  "Subtlety": {
+   "no_target": true,
+   "free_counter": false,
+   "needs_own_creature": false
+  },
+  "Sulfur Falls": {
+   "no_target": false,
+   "free_counter": false,
+   "needs_own_creature": false
+  },
+  "Tavern Scoundrel": {
+   "no_target": false,
+   "free_counter": false,
+   "needs_own_creature": false
+  },
+  "Thassa's Oracle": {
+   "no_target": false,
+   "free_counter": false,
+   "needs_own_creature": false
+  },
+  "The One Ring": {
+   "no_target": false,
+   "free_counter": false,
+   "needs_own_creature": false
+  },
+  "Twinflame": {
+   "no_target": false,
+   "free_counter": false,
+   "needs_own_creature": true
+  },
+  "Underworld Breach": {
+   "no_target": false,
+   "free_counter": false,
+   "needs_own_creature": false
+  },
+  "Urabrask": {
+   "no_target": false,
+   "free_counter": false,
+   "needs_own_creature": false
+  },
+  "Valley Floodcaller": {
+   "no_target": false,
+   "free_counter": false,
+   "needs_own_creature": false
+  },
+  "Veyran, Voice of Duality": {
+   "no_target": false,
+   "free_counter": false,
+   "needs_own_creature": false
+  },
+  "Vivi Ornitier": {
+   "no_target": false,
+   "free_counter": false,
+   "needs_own_creature": false
+  },
+  "Volcanic Island": {
+   "no_target": false,
+   "free_counter": false,
+   "needs_own_creature": false
+  },
+  "Zndrsplt, Eye of Wisdom": {
+   "no_target": false,
+   "free_counter": false,
+   "needs_own_creature": false
+  }
+ },
+ "n": 82
+}

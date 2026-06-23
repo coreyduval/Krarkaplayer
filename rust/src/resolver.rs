@@ -1,0 +1,788 @@
+//! resolver.rs — port of resolver.py. The Krark cast resolver: analyze_cast (exact EV),
+//! the per-card EFFECTS, ETB tutors, and resolve_cast_sample (one playout step).
+
+use crate::cards::{CardType, ManaCost, Registry};
+use crate::game_state::{krark_body, GameState, Permanent};
+use crate::wishlist;
+use rand::Rng;
+use std::collections::HashMap;
+
+pub const MAX_FLIPS: i64 = 40;
+const QUASI_BODY_CAP: i64 = 4;
+const QUASI_TOKEN_CAP: i64 = 5;
+
+pub const STORM_SPELLS: &[&str] = &["Grapeshot", "Brain Freeze", "Flusterstorm"];
+const DAMAGE_SPELLS: &[&str] = &["Grapeshot", "Gut Shot"];
+
+// --------------------------------------------------------------------------- //
+// Pre-cast analysis (exact, no sampling)
+// --------------------------------------------------------------------------- //
+
+#[derive(Debug, Clone, Default)]
+pub struct CastAnalysis {
+    pub card: String,
+    pub flips: i64,
+    pub p: f64,
+    pub p_resolve: f64,
+    pub p_return: f64,
+    pub e_copies: f64,
+    pub e_storm_copies: i64,
+    pub e_effect_resolutions: f64,
+    pub e_storm_after: i64,
+    pub e_draws: f64,
+    pub e_treasures: f64,
+    pub e_mana: HashMap<String, f64>,
+    pub e_damage: f64,
+    pub wins_pmf: Vec<f64>,
+    pub notes: Vec<String>,
+}
+
+fn comb(n: i64, k: i64) -> f64 {
+    if k < 0 || k > n {
+        return 0.0;
+    }
+    let mut r = 1.0f64;
+    let k = k.min(n - k);
+    for i in 0..k {
+        r = r * (n - i) as f64 / (i + 1) as f64;
+    }
+    r
+}
+
+fn binom_pmf(n: i64, p: f64) -> Vec<f64> {
+    (0..=n)
+        .map(|k| comb(n, k) * p.powi(k as i32) * (1.0 - p).powi((n - k) as i32))
+        .collect()
+}
+
+pub fn analyze_cast(state: &GameState, reg: &Registry, card_name: &str) -> CastAnalysis {
+    let cdef = reg.get(card_name);
+    if !cdef.is_instant_or_sorcery() {
+        panic!("{card_name} is not an instant/sorcery; Krark won't flip for it.");
+    }
+
+    let f = state.flips_per_cast(reg).min(MAX_FLIPS);
+    let p = state.flip_p();
+    let mut notes: Vec<String> = Vec::new();
+    if f == 0 {
+        notes.push("No Krark body in play — casting triggers no flips (one normal cast).".into());
+    }
+
+    let storm_copies = if STORM_SPELLS.contains(&card_name) {
+        state.storm_count
+    } else {
+        0
+    };
+    let pmf = if f > 0 { binom_pmf(f, p) } else { vec![1.0] };
+    let e_wins = f as f64 * p;
+    let p_resolve = if f > 0 { p.powi(f as i32) } else { 1.0 };
+    let p_return = 1.0 - p_resolve;
+    let e_copies = e_wins;
+
+    let e_effect_resolutions =
+        (if f > 0 { e_wins + p_resolve } else { 1.0 }) + storm_copies as f64;
+    let e_cast_copy_events = 1.0 + e_wins + storm_copies as f64;
+
+    let mut e_draws = 0.0;
+    let mut e_treasures = 0.0;
+    let mut e_damage = 0.0;
+    let mut e_mana: HashMap<String, f64> = HashMap::new();
+
+    for (idx, eng) in state.value_engines(reg) {
+        let mult = state.value_multiplier(eng, true) as f64;
+        let eff = state.battlefield[idx].effective_name();
+        if crate::cards::is_verify(eff) {
+            notes.push(format!("{eff}: output NOT certified; treat as estimate."));
+        }
+        let cause = eng.trigger_cause.as_deref();
+        let events = match cause {
+            Some("is_cast_or_copy") => e_cast_copy_events,
+            Some("is_cast") | Some("spell_cast") => 1.0,
+            Some("coin_flip_win") => e_wins,
+            _ => 0.0,
+        };
+        e_draws += eng.draw_per_trigger as f64 * mult * events;
+        e_treasures += (eng.treasure_per_trigger + eng.treasure_per_flip_win) as f64 * mult * events;
+        e_damage += eng.damage_per_trigger as f64 * mult * events;
+        for (col, amt) in &eng.mana_per_trigger {
+            *e_mana.entry(col.clone()).or_insert(0.0) += *amt as f64 * mult * events;
+        }
+    }
+
+    if DAMAGE_SPELLS.contains(&card_name) {
+        e_damage += e_effect_resolutions;
+        notes.push(format!(
+            "{card_name}: E[total bolts] = {e_effect_resolutions:.2} ({storm_copies} storm + {e_wins:.2} Krark + {p_resolve:.3} original)."
+        ));
+    }
+
+    CastAnalysis {
+        card: card_name.to_string(),
+        flips: f,
+        p,
+        p_resolve,
+        p_return,
+        e_copies,
+        e_storm_copies: storm_copies,
+        e_effect_resolutions,
+        e_storm_after: state.storm_count + 1,
+        e_draws,
+        e_treasures,
+        e_mana,
+        e_damage,
+        wins_pmf: pmf,
+        notes,
+    }
+}
+
+// --------------------------------------------------------------------------- //
+// Effects support
+// --------------------------------------------------------------------------- //
+
+/// "untap up to N lands" cap per resolution. Mirror of UNTAP_LANDS.
+fn untap_cap(card: &str) -> i64 {
+    match card {
+        "Frantic Search" => 3,
+        "Snap" => 2,
+        _ => 0,
+    }
+}
+
+pub fn untap_mana(state: &GameState, reg: &Registry, card: &str) -> i64 {
+    let cap = untap_cap(card);
+    if cap == 0 {
+        return 0;
+    }
+    // "Untap up to N lands" only refunds lands that are actually TAPPED (re-tapping them for a
+    // second use). Real lands only — treasures/rocks aren't untapped by these spells.
+    let n_tapped = state
+        .battlefield
+        .iter()
+        .filter(|p| p.tapped && reg.get(&p.name).types.contains(&CardType::Land))
+        .count() as i64;
+    cap.min(n_tapped)
+}
+
+/// Mana actually refunded by "untap up to `cap` lands": pick up to `cap` TAPPED lands and sum
+/// their production in REAL colors (basics give their color, dual/any-color lands give '*').
+/// Requires the lands to be present and tapped — with too few lands the refund is partial, so
+/// the spell can go mana-negative on its own (the user's ruling: Snap/Frantic need the lands).
+pub fn untap_lands_mana(state: &GameState, reg: &Registry, cap: i64) -> ManaCost {
+    let mut out: ManaCost = HashMap::new();
+    let mut taken = 0i64;
+    for p in &state.battlefield {
+        if taken >= cap {
+            break;
+        }
+        if !p.tapped || !reg.get(&p.name).types.contains(&CardType::Land) {
+            continue;
+        }
+        if let Some((_, produced)) = crate::tables::mana_source(p.effective_name()) {
+            for (k, v) in &produced {
+                *out.entry(k.clone()).or_insert(0) += v;
+            }
+            taken += 1;
+        }
+    }
+    out
+}
+
+const NEVER_DISCARD: &[&str] = &[
+    "Thassa's Oracle", "Grapeshot", "Brain Freeze", "Underworld Breach",
+    "Gale, Waterdeep Prodigy", "Twinflame", "Heat Shimmer", "Dualcaster Mage",
+];
+
+const MANA_ROCK_NAMES: &[&str] = &[
+    "Sol Ring", "Mana Vault", "Chrome Mox", "Mox Amber", "Mox Diamond", "Lotus Petal",
+    "Arcane Signet", "Springleaf Drum", "Relic of Legends",
+];
+
+fn is_source(reg: &Registry, name: &str) -> bool {
+    reg.get(name).types.contains(&CardType::Land) || MANA_ROCK_NAMES.contains(&name)
+}
+
+/// Sort key for what to DISCARD (lowest = pitch first). Mirror of discard_rank.
+pub fn discard_rank(state: &GameState, reg: &Registry, card: &str) -> f64 {
+    if NEVER_DISCARD.contains(&card) {
+        return f64::INFINITY;
+    }
+    let val = wishlist::card_value(state, reg, card, false);
+    let mut redundant = 0.0;
+    if state
+        .battlefield
+        .iter()
+        .any(|p| p.effective_name() == card || p.name == card)
+    {
+        redundant += 5.0;
+    }
+    if is_source(reg, card) {
+        let sources = state
+            .battlefield
+            .iter()
+            .filter(|p| is_source(reg, p.effective_name()))
+            .count() as i64
+            + state.hand.iter().filter(|c| is_source(reg, c)).count() as i64;
+        if sources > 4 {
+            redundant += 3.0 + 0.5 * (sources - 4) as f64;
+        }
+    }
+    val - redundant
+}
+
+fn pitch_worst(state: &mut GameState, reg: &Registry, k: i64) {
+    for _ in 0..k {
+        let pool: Vec<String> = {
+            let p: Vec<String> = state
+                .hand
+                .iter()
+                .filter(|c| !NEVER_DISCARD.contains(&c.as_str()))
+                .cloned()
+                .collect();
+            if p.is_empty() {
+                state.hand.clone()
+            } else {
+                p
+            }
+        };
+        if pool.is_empty() {
+            return;
+        }
+        // min by discard_rank (stable: first min)
+        let worst = pool
+            .iter()
+            .min_by(|a, b| {
+                discard_rank(state, reg, a)
+                    .partial_cmp(&discard_rank(state, reg, b))
+                    .unwrap_or(std::cmp::Ordering::Equal)
+            })
+            .unwrap()
+            .clone();
+        if let Some(pos) = state.hand.iter().position(|c| *c == worst) {
+            state.hand.remove(pos);
+        }
+        state.graveyard.push(worst);
+    }
+}
+
+// --------------------------------------------------------------------------- //
+// ETB tutors
+// --------------------------------------------------------------------------- //
+
+/// If `name` is a tutor creature entering, fetch the best wishlist card matching its filter.
+/// Returns the fetched card, or None. Mirror of apply_etb / ETB_TUTORS.
+pub fn apply_etb(state: &mut GameState, reg: &Registry, name: &str) -> Option<String> {
+    match name {
+        "Spellseeker" => wishlist::tutor(state, reg, |c| {
+            let cd = reg.get(c);
+            cd.is_instant_or_sorcery() && cd.mana_value <= 2
+        }),
+        "Imperial Recruiter" => {
+            wishlist::tutor(state, reg, |c| reg.get(c).types.contains(&CardType::Creature))
+        }
+        "Okaun, Eye of Chaos" => {
+            wishlist::tutor(state, reg, |c| c == "Zndrsplt, Eye of Wisdom")
+        }
+        "Zndrsplt, Eye of Wisdom" => {
+            wishlist::tutor(state, reg, |c| c == "Okaun, Eye of Chaos")
+        }
+        _ => None,
+    }
+}
+
+// --------------------------------------------------------------------------- //
+// Quasiduplicate target selection
+// --------------------------------------------------------------------------- //
+
+/// Develop value of casting Quasiduplicate now. Mirror of resolver.quasi_value.
+pub fn quasi_value(state: &GameState, reg: &Registry, resolutions: f64) -> f64 {
+    match quasi_target(state, reg) {
+        None => -1.0,
+        Some(t) if t == "Krark, the Thumbless" => resolutions * 3.0,
+        Some(_) => resolutions * 2.0,
+    }
+}
+
+pub fn quasi_target(state: &GameState, reg: &Registry) -> Option<String> {
+    if state.battlefield.iter().filter(|p| p.is_token).count() as i64 >= QUASI_TOKEN_CAP {
+        return None;
+    }
+    let on_bf: Vec<&str> = state.battlefield.iter().map(|p| p.effective_name()).collect();
+    let payoff_acc = ["Grapeshot", "Thassa's Oracle", "Brain Freeze"].iter().any(|pf| {
+        state.hand.iter().any(|c| c == pf)
+            || state.graveyard.iter().any(|c| c == pf)
+            || state.has_permanent(pf)
+    });
+    if !payoff_acc {
+        for t in ["Imperial Recruiter", "Spellseeker"] {
+            if on_bf.contains(&t) {
+                return Some(t.to_string());
+            }
+        }
+    }
+    if on_bf.contains(&"Krark, the Thumbless") && state.krark_bodies(reg) < QUASI_BODY_CAP {
+        return Some("Krark, the Thumbless".to_string());
+    }
+    None
+}
+
+// --------------------------------------------------------------------------- //
+// Effects dispatch — port of the @effect handlers
+// --------------------------------------------------------------------------- //
+
+/// Choices passed to an effect (subset of the Python dict that the effects read).
+#[derive(Default, Clone)]
+pub struct Choices {
+    pub target: Option<String>, // Brain Freeze: "self" | "opponents"
+}
+
+/// Index of the FIRST entry with the smallest positive value (matches Python's
+/// `min((j for j,l in enumerate(xs) if l>0), key=lambda j: xs[j])` tie-break: first wins).
+fn first_min_positive(xs: &[i64]) -> Option<usize> {
+    let mut best: Option<usize> = None;
+    for (j, &l) in xs.iter().enumerate() {
+        if l > 0 && (best.is_none() || l < xs[best.unwrap()]) {
+            best = Some(j);
+        }
+    }
+    best
+}
+
+fn pop_top(state: &mut GameState) -> Option<String> {
+    if state.library.is_empty() {
+        None
+    } else {
+        Some(state.library.remove(0))
+    }
+}
+
+/// Run the per-card effect `n` total instances (resolutions + storm copies). `rng` is used by
+/// Gamble's random discard. Returns true if the card had a scripted effect.
+fn run_effect<R: Rng + ?Sized>(
+    state: &mut GameState,
+    reg: &Registry,
+    card: &str,
+    n: i64,
+    choices: &Choices,
+    rng: &mut R,
+) -> bool {
+    match card {
+        "Ponder" | "Brainstorm" => {
+            for _ in 0..n {
+                if state.library.is_empty() {
+                    break;
+                }
+                let top: Vec<String> = state.library.iter().take(3).cloned().collect();
+                let keep = wishlist::best(state, reg, &top, 1, false)[0].clone();
+                if let Some(pos) = state.library.iter().position(|c| *c == keep) {
+                    state.library.remove(pos);
+                }
+                state.hand.push(keep);
+            }
+            true
+        }
+        "Frantic Search" => {
+            let cap = untap_cap("Frantic Search");
+            for _ in 0..n {
+                // refund the real colors of up to `cap` tapped lands (each copy untaps anew)
+                let refund = untap_lands_mana(state, reg, cap);
+                state.mana.add_cost(&refund);
+                let take = 2.min(state.library.len());
+                for _ in 0..take {
+                    let c = state.library.remove(0);
+                    state.hand.push(c);
+                }
+                let k = 2.min(state.hand.len()) as i64;
+                pitch_worst(state, reg, k);
+            }
+            true
+        }
+        "Snap" => {
+            let cap = untap_cap("Snap");
+            for _ in 0..n {
+                let refund = untap_lands_mana(state, reg, cap);
+                state.mana.add_cost(&refund);
+            }
+            true
+        }
+        "Gamble" => {
+            // Each resolution searches up a card, then discards one at RANDOM. With multiple
+            // resolutions (Krark/Storm copies), pick the best n cards up front and fetch them
+            // LEAST-important first so the most important is added LAST — it then sits in hand
+            // for the fewest subsequent random discards. wishlist::best is best-first, so rev().
+            let want = (n.max(0) as usize).min(state.library.len());
+            let picks = wishlist::best(state, reg, &state.library.clone(), want, true);
+            for fetched in picks.into_iter().rev() {
+                match state.library.iter().position(|c| *c == fetched) {
+                    Some(pos) => {
+                        state.library.remove(pos);
+                    }
+                    None => continue,
+                }
+                state.hand.push(fetched);
+                if !state.hand.is_empty() {
+                    let i = rng.gen_range(0..state.hand.len());
+                    let pitched = state.hand.remove(i);
+                    state.graveyard.push(pitched);
+                }
+            }
+            true
+        }
+        "Pyretic Ritual" | "Desperate Ritual" => {
+            state.mana.add("R", 3 * n);
+            true
+        }
+        "Rite of Flame" => {
+            state.mana.add("R", 2 * n);
+            true
+        }
+        "Gitaxian Probe" | "Peek" | "Borne Upon a Wind" | "Opt" | "Consider" | "Serum Visions"
+        | "Preordain" => {
+            for _ in 0..n {
+                if let Some(c) = pop_top(state) {
+                    state.hand.push(c);
+                }
+            }
+            true
+        }
+        "Strike It Rich" => {
+            state.mana.treasures += n;
+            true
+        }
+        "Jeska's Will" => {
+            let max_hand = state.opponent_hand.iter().copied().max().unwrap_or(0);
+            state.mana.add("R", max_hand * n);
+            let k = (3 * n).min(state.library.len() as i64);
+            for _ in 0..k {
+                let c = state.library.remove(0);
+                state.exiled_play.push(c);
+            }
+            true
+        }
+        "Grapeshot" | "Gut Shot" => {
+            let mut d = n;
+            let mut life = state.opponent_life.clone();
+            while d > 0 && life.iter().any(|l| *l > 0) {
+                let j = first_min_positive(&life).unwrap();
+                let take = d.min(life[j]);
+                life[j] -= take;
+                d -= take;
+                if life[j] > 0 {
+                    break;
+                }
+            }
+            state.opponent_life = life;
+            true
+        }
+        "Brain Freeze" => {
+            let mill = 3 * n;
+            if choices.target.as_deref() == Some("self") {
+                let take = mill.min(state.library.len() as i64);
+                for _ in 0..take {
+                    let c = state.library.remove(0);
+                    state.graveyard.push(c);
+                }
+            } else {
+                let mut libs = state.opponent_library.clone();
+                let mut m = mill;
+                while m > 0 && libs.iter().any(|l| *l > 0) {
+                    let j = first_min_positive(&libs).unwrap();
+                    let take = m.min(libs[j]);
+                    libs[j] -= take;
+                    m -= take;
+                    if libs[j] > 0 {
+                        break;
+                    }
+                }
+                state.opponent_library = libs;
+            }
+            true
+        }
+        "Thassa's Oracle" => true, // creature ETB; win decided by predicate
+        "Quasiduplicate" => {
+            for _ in 0..n {
+                let tgt = match quasi_target(state, reg) {
+                    Some(t) => t,
+                    None => break,
+                };
+                if tgt == "Krark, the Thumbless" {
+                    state.battlefield.push(krark_body(
+                        "Sakashima of a Thousand Faces",
+                        Some("Krark, the Thumbless"),
+                        true,
+                    ));
+                } else {
+                    let mut p = Permanent::new(&tgt);
+                    p.is_token = true;
+                    p.summoning_sick = true;
+                    state.battlefield.push(p);
+                    apply_etb(state, reg, &tgt);
+                }
+            }
+            true
+        }
+        _ => false,
+    }
+}
+
+// --------------------------------------------------------------------------- //
+// Sampling resolver (one playout step)
+// --------------------------------------------------------------------------- //
+
+pub struct ResolveLog {
+    pub flips: i64,
+    pub wins: i64,
+    pub storm_copies: i64,
+    pub resolutions: i64,
+    pub triggers: Vec<(String, i64)>,
+    pub warnings: Vec<String>,
+}
+
+/// Mutates `state` in place: put spell on stack, flip, resolve Storm + Krark copies + value
+/// triggers, run the effect, return/resolve the original. Mirror of resolve_cast_sample with
+/// copy=False (caller owns the state). `forced_wins`: if Some, fixes the won-flip count.
+pub fn resolve_cast_sample<R: Rng + ?Sized>(
+    state: &mut GameState,
+    reg: &Registry,
+    card_name: &str,
+    rng: &mut R,
+    choices: &Choices,
+    forced_wins: Option<i64>,
+) -> ResolveLog {
+    let f = state.flips_per_cast(reg).min(MAX_FLIPS);
+    let p = state.flip_p();
+    let storm_prior = state.storm_count;
+    let storm_copies = if STORM_SPELLS.contains(&card_name) {
+        storm_prior
+    } else {
+        0
+    };
+    state.storm_count += 1;
+
+    let wins = match forced_wins {
+        Some(fw) => fw.max(0).min(f),
+        None => (0..f).filter(|_| rng.gen::<f64>() < p).count() as i64,
+    };
+    let all_won = f == 0 || wins == f;
+    let resolutions = if f > 0 {
+        wins + if all_won { 1 } else { 0 }
+    } else {
+        1
+    };
+    let magecraft_events = 1 + wins + storm_copies;
+
+    let mut log = ResolveLog {
+        flips: f,
+        wins,
+        storm_copies,
+        resolutions,
+        triggers: Vec::new(),
+        warnings: Vec::new(),
+    };
+
+    // value engines (collect deltas first to avoid borrow conflicts)
+    let engines: Vec<(usize, ManaCost, i64, i64, i64, i64, Option<String>, i64, String)> = state
+        .value_engines(reg)
+        .into_iter()
+        .map(|(idx, eng)| {
+            (
+                idx,
+                eng.mana_per_trigger.clone(),
+                eng.draw_per_trigger,
+                eng.treasure_per_trigger,
+                eng.treasure_per_flip_win,
+                eng.damage_per_trigger,
+                eng.trigger_cause.clone(),
+                state.value_multiplier(eng, true),
+                state.battlefield[idx].effective_name().to_string(),
+            )
+        })
+        .collect();
+
+    for (_idx, mana_per, draw_per, treas_per, treas_flip, dmg_per, cause, mult, eff_name) in engines
+    {
+        let events = match cause.as_deref() {
+            Some("is_cast_or_copy") => magecraft_events,
+            Some("is_cast") | Some("spell_cast") => 1,
+            Some("coin_flip_win") => wins,
+            _ => 0,
+        };
+        let fires = events * mult;
+        if draw_per != 0 {
+            let n = (draw_per * fires).min(state.library.len() as i64);
+            for _ in 0..n {
+                let c = state.library.remove(0);
+                state.hand.push(c);
+            }
+        }
+        if treas_per != 0 || treas_flip != 0 {
+            state.mana.treasures += (treas_per + treas_flip) * fires;
+        }
+        for (col, amt) in &mana_per {
+            state.mana.add(col, *amt * fires);
+        }
+        if dmg_per != 0 && fires != 0 {
+            let mut d = dmg_per * fires;
+            let mut life = state.opponent_life.clone();
+            while d > 0 && life.iter().any(|l| *l > 0) {
+                let j = first_min_positive(&life).unwrap();
+                let take = d.min(life[j]);
+                life[j] -= take;
+                d -= take;
+            }
+            state.opponent_life = life;
+        }
+        if fires != 0 {
+            log.triggers.push((eff_name, fires));
+        }
+    }
+
+    let total_instances = resolutions + storm_copies;
+    let scripted = run_effect(state, reg, card_name, total_instances, choices, rng);
+    if !scripted {
+        log.warnings.push(format!("effect for {card_name} not scripted"));
+    }
+
+    if f == 0 || all_won {
+        state.graveyard.push(card_name.to_string());
+    } else {
+        state.hand.push(card_name.to_string());
+    }
+    log
+}
+
+// --------------------------------------------------------------------------- //
+// selftest — mirrors the Python module __main__ asserts
+// --------------------------------------------------------------------------- //
+
+pub fn selftest(reg: &Registry) {
+    use crate::game_state::krark_body as kb;
+    use rand::SeedableRng;
+    let mut rng = rand::rngs::StdRng::from_seed([7u8; 32]);
+
+    fn approx(a: f64, b: f64) -> bool {
+        (a - b).abs() < 1e-9
+    }
+
+    // ---- value-engine EV (P(resolve)=0.125, E[draws]=7.5) ----
+    {
+        let mut s = GameState {
+            library: vec!["Island".to_string(); 40],
+            hand: vec!["Ponder".to_string()],
+            ..Default::default()
+        };
+        s.battlefield = vec![
+            kb("Krark, the Thumbless", None, false),
+            Permanent { summoning_sick: false, ..Permanent::new("Archmage Emeritus") },
+            Permanent { summoning_sick: false, ..Permanent::new("Storm-Kiln Artist") },
+            Permanent { summoning_sick: false, ..Permanent::new("Veyran, Voice of Duality") },
+            Permanent { summoning_sick: false, ..Permanent::new("Harmonic Prodigy") },
+        ];
+        let a = analyze_cast(&s, reg, "Ponder");
+        assert!(approx(a.p_resolve, 0.125) && approx(a.e_draws, 7.5), "Ponder EV: p_resolve={} e_draws={}", a.p_resolve, a.e_draws);
+        println!("[ok] value-engine EV (P(resolve)=0.125, E[draws]=7.5)");
+    }
+
+    // ---- Grapeshot storm math: 9 prior, 1 Krark + both doublers (F=3) ----
+    {
+        let mut g = GameState {
+            storm_count: 9,
+            hand: vec!["Grapeshot".to_string()],
+            opponent_life: vec![40, 40, 40],
+            ..Default::default()
+        };
+        g.battlefield = vec![
+            kb("Krark, the Thumbless", None, false),
+            Permanent { summoning_sick: false, ..Permanent::new("Veyran, Voice of Duality") },
+            Permanent { summoning_sick: false, ..Permanent::new("Harmonic Prodigy") },
+        ];
+        let ag = analyze_cast(&g, reg, "Grapeshot");
+        let expect = 9.0 + 3.0 * 0.5 + 0.5f64.powi(3);
+        assert!(approx(ag.e_damage, expect), "Grapeshot e_damage={} expect={}", ag.e_damage, expect);
+        println!("[ok] Grapeshot E[bolts]={:.3} = 9 storm + 1.5 Krark + 0.125 original", ag.e_damage);
+    }
+
+    // ---- deterministic storm kill: no Krark, 9 prior, opps at 3 ----
+    {
+        let mut g2 = GameState {
+            storm_count: 9,
+            hand: vec!["Grapeshot".to_string()],
+            opponent_life: vec![3, 3, 3],
+            ..Default::default()
+        };
+        resolve_cast_sample(&mut g2, reg, "Grapeshot", &mut rng, &Choices::default(), None);
+        assert!(g2.opponent_life.iter().all(|l| *l <= 0), "life {:?}", g2.opponent_life);
+        println!("[ok] Grapeshot (storm 9, no Krark) deals 10 -> kills 3x3 table: {:?}", g2.opponent_life);
+    }
+
+    // ---- Brain Freeze self-mill feeds Thoracle ----
+    {
+        let mut bf = GameState {
+            storm_count: 5,
+            library: vec!["Island".to_string(); 18],
+            hand: vec!["Brain Freeze".to_string()],
+            ..Default::default()
+        };
+        bf.battlefield = vec![Permanent { summoning_sick: false, ..Permanent::new("Thassa's Oracle") }];
+        let before = bf.library.len();
+        let ch = Choices { target: Some("self".to_string()) };
+        resolve_cast_sample(&mut bf, reg, "Brain Freeze", &mut rng, &ch, None);
+        let dev = bf.blue_devotion(reg);
+        println!(
+            "[ok] Brain Freeze self-mill: library {} -> {}; devotion {} -> Thoracle {}",
+            before,
+            bf.library.len(),
+            dev,
+            if bf.library.len() as i64 <= dev { "LETHAL" } else { "pending" }
+        );
+    }
+
+    // ---- INVARIANT: copies are not cast, so storm stays 1 ----
+    {
+        let mut inv = GameState {
+            library: vec!["Island".to_string(); 200],
+            storm_count: 0,
+            hand: vec!["Ponder".to_string()],
+            ..Default::default()
+        };
+        inv.battlefield = vec![
+            kb("Krark, the Thumbless", None, false),
+            kb("Sakashima of a Thousand Faces", Some("Krark, the Thumbless"), false),
+            Permanent { summoning_sick: false, ..Permanent::new("Veyran, Voice of Duality") },
+            Permanent { summoning_sick: false, ..Permanent::new("Harmonic Prodigy") },
+        ];
+        assert_eq!(inv.flips_per_cast(reg), 6);
+        let mut r2 = rand::rngs::StdRng::from_seed([7u8; 32]);
+        let log = resolve_cast_sample(&mut inv, reg, "Ponder", &mut r2, &Choices::default(), None);
+        assert_eq!(inv.storm_count, 1, "storm should be 1 cast, not 1+copies");
+        inv.hand.push("Grapeshot".to_string());
+        let ag2 = analyze_cast(&inv, reg, "Grapeshot");
+        assert_eq!(ag2.e_storm_copies, 1, "next Grapeshot sees only prior casts");
+        println!("[ok] INVARIANT: Ponder made {} Krark copies, storm still = {}; next Grapeshot sees {} storm copy", log.wins, inv.storm_count, ag2.e_storm_copies);
+    }
+
+    // ---- flip math fidelity: E[copies] ~ F*p over many samples ----
+    {
+        let mut s = GameState {
+            library: vec!["Island".to_string(); 5000],
+            hand: vec!["Ponder".to_string()],
+            ..Default::default()
+        };
+        s.battlefield = vec![
+            kb("Krark, the Thumbless", None, false),
+            kb("Sakashima of a Thousand Faces", Some("Krark, the Thumbless"), false),
+        ]; // 2 bodies, no doublers -> F=2, p=0.5 -> E[copies]=1.0
+        let mut total_wins = 0i64;
+        let trials = 200_000;
+        let mut r3 = rand::rngs::StdRng::from_seed([42u8; 32]);
+        for _ in 0..trials {
+            let mut c = s.clone();
+            let log = resolve_cast_sample(&mut c, reg, "Ponder", &mut r3, &Choices::default(), None);
+            total_wins += log.wins;
+        }
+        let e_copies = total_wins as f64 / trials as f64;
+        assert!((e_copies - 1.0).abs() < 0.02, "E[copies]={e_copies} (expect ~1.0)");
+        println!("[ok] flip math: 2 bodies p=0.5 -> sampled E[copies]={e_copies:.4} (expect 1.0 = F*p)");
+    }
+
+    println!("\nResolver Phase-2 selftest passed.");
+}

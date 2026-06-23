@@ -1,0 +1,33 @@
+================================================================
+KRARK/SAKASHIMA SIM — OVERNIGHT AUTONOMOUS RUN  (2026-06-22)
+================================================================
+Pipeline: Agent A (convergence) -> Agent B (Scryfall legality audit) -> save memory -> shutdown.
+Budget 6h; watchdog (45-min-stall / 6h-cap shutdown) guarded it. Finished cleanly.
+
+AGENT A — CONVERGENCE / STATISTICAL POWER
+  Recommended sample: --games 1200 --flip-trials 8
+  - Depth converges by D=8 (more flips change win% <0.1pp).
+  - Win distribution is HEAVY-TAILED: ~0.4% full-brick seeds dominate variance,
+    so sd grows with G (~1.2@100, ~3.5@400, ~8.4@800/1200). Need ~1200 seeds for CI +/-0.5pp.
+  - Samples < ~1000 seeds report over-confident error bars AND inflated win rate.
+  Report: convergence.txt
+
+AGENT B — SCRYFALL LEGALITY AUDIT
+  Read all 8 Rust source files; audited 28 lines (3 turn-2 fastest across luck 0..7 + 25 random).
+  Cross-checked vs Scryfall oracle text + official rulings.
+  RESULT: NO clear-cut violations. ZERO code edits. Tests 9 passed / 0 failed.
+  Engine sound: mana never negative, treasures spent<=made, legend rule via Sakashima immunity,
+  command +2/cast tax, zone/enabler gating, payoff predicate, magecraft copy-count = Archmage ruling.
+  4 modeling-abstraction judgment calls left for user (Chrome Mox imprint; Mox Amber/Command Tower
+  color identity; loop-counters assume a target on the stack incl. An Offer treasures; Frantic
+  Search/Snap untap-lands as {*}). Detail: legality_audit.txt / fix_changelog.txt
+
+AUTHORITATIVE WIN RATE (G=1200, D=8, engine UNCHANGED)
+  98.7%  (9473/9600 winning trials, CI +/-0.47pp)
+  mean turn 8.17, median 8, best 2, worst 18, brick rate ~0.4%
+  (Earlier 99.x-100% numbers were small-sample over-estimates of the heavy tail.)
+  Data: _final_g1200.txt
+
+ARTIFACTS: this dir (overnight/) + memory files (overnight-run-2026-06-22, convergence-sample-size,
+  audit-open-questions-2026-06-22, krarkashima-sim-state). Source snapshot: ../rust/src_backup_2026-06-22_overnight
+================================================================

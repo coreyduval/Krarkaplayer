@@ -1,0 +1,29 @@
+=== GAME seed=31 luck=2 ===
+  OPENING : (kept 7) Glasspool Mimic, Birgi, God of Storytelling, Jeska's Will, Spellseeker, Mountain, Mountain, Island
+  LIBRARY : 91 cards
+
+=== TURN 1 ===
+  LAND    : Mountain
+  CHECK   : bodies=0 doublers=0 flips/cast=0 devotion=0  best p_win=0.000
+
+=== TURN 2 ===
+  DRAW    : Otawara, Soaring City
+  LAND    : Mountain
+  CAST    : Krark, the Thumbless (from command) cost {R}{1} | float [R] +tap-> avail [R R] -pay-> [empty]
+  CHECK   : bodies=1 doublers=0 flips/cast=1 devotion=0  best p_win=0.000
+
+=== TURN 3 ===
+  DRAW    : Baral, Chief of Compliance
+  LAND    : Island
+
+=== WIN — turn 3 ===
+  [KILL] Twinflame (in hand) + Dualcaster Mage with mana for both — infinite hasty attackers.
+    - cast_perm:Imperial Recruiter
+
+  ZONES   : lib 83 | gy 1 | treasures 0 | opp_life 160
+  PAYOFFS : seen []  | buried [Thassa's Oracle, Grapeshot, Brain Freeze]
+  COMBO   : seen [Twinflame]  | buried [Heat Shimmer, Dualcaster Mage]
+  MANA-ENG: seen [Birgi, God of Storytelling, Jeska's Will]  | buried [Storm-Kiln Artist, Archmage Emeritus, Strike It Rich, Rite of Flame, Pyretic Ritual, Desperate Ritual]
+  BURN    : seen []  | buried [Urabrask, Vivi Ornitier]
+  HAND    : Glasspool Mimic, Birgi, God of Storytelling, Spellseeker, Otawara, Soaring City, Baral, Chief of Compliance, Imperial Recruiter, Underworld Breach, Twinflame, Fierce Guardianship, Deflecting Swat, Peek
+  BOARD   : Krark, the Thumbless

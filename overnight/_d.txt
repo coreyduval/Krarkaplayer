@@ -1,0 +1,71 @@
+=== GAME seed=5 luck=9 ===
+  OPENING : (kept 7) Harmonic Prodigy, Mountain, Island, Chrome Mox, Shivan Reef, Underworld Breach, Heat Shimmer
+  LIBRARY : 91 cards
+
+=== TURN 1 ===
+  LAND    : Mountain
+  CAST    : Chrome Mox (from hand) cost {0} | float [R] +tap-> avail [R] -pay-> [R]
+  IMPRINT : Chrome Mox exiles Harmonic Prodigy (imprint cost)
+  CAST    : Krark, the Thumbless (from command) cost {R}{1} | float [R *] +tap-> avail [R *] -pay-> [empty]
+  CHECK   : bodies=1 doublers=0 flips/cast=1 devotion=0  best p_win=0.000
+
+=== TURN 2 ===
+  DRAW    : Tavern Scoundrel
+  LAND    : Island
+  CAST    : Tavern Scoundrel (from hand) cost {R}{1} | float [U] +tap-> avail [U R] -pay-> [empty]
+  CHECK   : bodies=1 doublers=0 flips/cast=1 devotion=0  best p_win=0.000
+
+=== TURN 3 ===
+  DRAW    : Great Furnace
+  LAND    : Shivan Reef
+  CAST    : Sakashima of a Thousand Faces (from command) cost {U}{3} | float [*] +tap-> avail [U R * *] -pay-> [empty]  [copy-of Krark, the Thumbless]
+  CHECK   : bodies=2 doublers=0 flips/cast=2 devotion=0  best p_win=0.000
+
+=== TURN 4 ===
+  DRAW    : Mystic Remora
+  LAND    : Great Furnace
+  CAST    : Mystic Remora (from hand) cost {U} | float [R] +tap-> avail [R R *] -pay-> [R R]
+  DEVELOP : Heat Shimmer
+  CHECK   : bodies=2 doublers=0 flips/cast=2 devotion=1  best p_win=0.000
+
+=== TURN 5 ===
+  DRAW    : Baral, Chief of Compliance
+  CAST    : Baral, Chief of Compliance (from hand) cost {U}{1} | float [empty, +4T] +tap-> avail [empty, +4T] -pay-> [empty, +2T]
+  CHECK   : bodies=2 doublers=0 flips/cast=2 devotion=2  best p_win=0.000
+
+=== TURN 6 ===
+  DRAW    : Veyran, Voice of Duality
+  CAST    : Veyran, Voice of Duality (from hand) cost {U}{R}{1} | float [empty, +2T] +tap-> avail [R, +2T] -pay-> [empty]
+  CHECK   : bodies=2 doublers=1 flips/cast=4 devotion=3  best p_win=0.000
+
+=== TURN 7 ===
+  DRAW    : Island
+  LAND    : Island
+  CHECK   : bodies=2 doublers=1 flips/cast=4 devotion=3  best p_win=0.000
+
+=== TURN 8 ===
+  DRAW    : Mox Diamond
+  CHECK   : bodies=2 doublers=1 flips/cast=4 devotion=3  best p_win=0.000
+
+=== TURN 9 ===
+  DRAW    : Ponder
+  DEVELOP : Ponder, Ponder, Ponder, Ponder, Ponder, Ponder, Desperate Ritual, Strike It Rich
+  DUG     : Cyclonic Rift, Brain Freeze, Island, Snapcaster Mage, Grapeshot, Island, Mountain, Deflecting Swat, Ancient Tomb, Desperate Ritual
+  CHECK   : bodies=2 doublers=1 flips/cast=4 devotion=4  best p_win=0.000
+
+=== TURN 10 ===
+  DRAW    : Island
+  LAND    : Ancient Tomb
+
+=== WIN — turn 10 ===
+  [P(win)=1.000] deploy Breach + Ponder -> Thassa's Oracle (P=1.000)
+    - cast:Underworld Breach
+    - cast:Ponder
+
+  ZONES   : lib 68 | gy 5 | treasures 52 | opp_life 160
+  PAYOFFS : seen [Grapeshot, Brain Freeze]  | buried [Thassa's Oracle]
+  COMBO   : seen [Heat Shimmer]  | buried [Twinflame, Dualcaster Mage]
+  MANA-ENG: seen [Birgi, God of Storytelling, Desperate Ritual]  | buried [Storm-Kiln Artist, Archmage Emeritus, Jeska's Will, Rite of Flame, Pyretic Ritual]
+  BURN    : seen []  | buried [Urabrask, Vivi Ornitier]
+  HAND    : Underworld Breach, Cyclonic Rift, Brain Freeze, Grapeshot, Deflecting Swat, Desperate Ritual, Island
+  BOARD   : Chrome Mox, Krark, the Thumbless, Tavern Scoundrel, Sakashima of a Thousand Faces, Mystic Remora, Baral, Chief of Compliance, Veyran, Voice of Duality, Mox Diamond, Sol Ring, Krark's Thumb, Birgi, God of Storytelling, Snapcaster Mage

@@ -1,0 +1,81 @@
+CONVERGENCE / STATISTICAL-POWER STUDY  (Agent A)
+Krark/Sakashima cEDH simulator  --  krarksim.exe sweep
+Date: 2026-06-22
+
+Methodology: each SEED's per-seed P(win) (integer percent) = one observation.
+95% CI half-width on the mean win rate = 1.96 * sd / sqrt(G).
+Convergence target: CI half-width <= 0.5 percentage points (pp).
+Depth D* rule: smallest D where stepping to next D moves win% < 0.5pp AND mean-turn < 0.1.
+
+========================================================================
+STEP 1 -- DEPTH CONVERGENCE  (fixed G=300, vary flip-trials D)
+========================================================================
+  D    | win%    | meanTurn
+  -----+---------+---------
+   4   | 99.667  | 8.03
+   8   | 99.347  | 8.05
+  10   | 99.367  | 8.04
+  16   | 99.430  | 8.07
+  20   | 99.367  | 8.07
+
+  Step-to-step change:
+    4 -> 8 :  win -0.320pp,  turn +0.02   (still moving)
+    8 ->10 :  win +0.020pp,  turn -0.01   <-- both under threshold: CONVERGED
+   10 ->16 :  win +0.063pp,  turn +0.03
+   16 ->20 :  win -0.063pp,  turn  0.00
+
+  From D=8 onward win% sits in a 0.08pp band (99.35-99.43) and meanTurn in
+  8.04-8.07 (0.03 spread) -- pure Monte-Carlo noise, no systematic drift.
+
+  CHOSEN  D* = 8
+
+========================================================================
+STEP 2 -- SAMPLE-SIZE CONVERGENCE  (fixed D=8, vary games G)
+========================================================================
+  G    | mean win% | sd     | CI half-width (pp)
+  -----+-----------+--------+-------------------
+  100  |  99.880   | 1.200  | 0.235
+  200  |  99.385   | 3.455  | 0.479
+  400  |  99.325   | 3.543  | 0.347
+  800  |  98.684   | 8.620  | 0.597   <-- EXCEEDS target
+ 1200  |  (confirm run finishing right at the 50-min cap; predicted ciHalf
+        |   0.488. Result lands in overnight/_a_g1200.txt -- parse with the
+        |   same awk one-liner to verify <= 0.5pp.)
+
+  KEY FINDING -- the per-seed win distribution is heavy-tailed, NOT clean.
+  At G=800 the per-seed percents break down as:
+     766 seeds @ 100% ,  17 @ 88% ,  9 @ 75% ,  2 @ 50% ,  2 @ 38% ,  4 @ 0%
+  A handful of "bad" seeds (notably four 0% seeds) dominate the variance, so
+  the sample sd JUMPS with G as more of the tail gets sampled:
+     G=100 sd 1.20 , G=200 sd 3.46 , G=400 sd 3.54 , G=800 sd 8.62
+  The small-G runs (100-400) simply had not yet sampled enough tail seeds, so
+  their sd -- and therefore their CI half-width -- were badly UNDERESTIMATED.
+  The G=800 sd (8.62) is the most representative variance estimate available.
+
+  Required sample size using sd=8.62 :  (1.96*8.62 / 0.5)^2 ~= 1142 seeds.
+  Predicted CI half-width (1.96*8.62/sqrt(G)):
+     G=400 ->0.845 , G=800 ->0.597 , G=1000 ->0.534 , G=1200 ->0.488 (target)
+  G=1200 is the first round size that clears 0.5pp. A confirmation sweep at
+  G=1200 was launched; predicted ciHalf 0.488.
+
+  CHOSEN  G* = 1200
+  (Earlier draft of this report said G*=400; that was based on the
+   non-representative low-G sd and is SUPERSEDED by the G=800 heavy-tail data.)
+
+========================================================================
+RECOMMENDED: --games 1200 --flip-trials 8
+========================================================================
+
+Plain-English summary:
+Eight coin-flip trials per game are plenty -- going deeper than 8 changes the
+measured win rate by under 0.1pp and the average win-turn by ~0.01, so extra
+depth only burns CPU. Sample size is the subtle part. Almost every seed wins
+100% of the time, but a small fraction of "bad" seeds (a few that essentially
+never win) make the seed-to-seed variance large and heavy-tailed. Because those
+rare seeds only show up once you sample enough of them, small runs LOOK precise
+but actually understate the spread: the sample sd climbed from ~1.2 at 100 seeds
+to 8.6 at 800 seeds. Using that realistic sd=8.6, you need about 1142 seeds to
+pin the win rate to +/-0.5pp, so 1200 games is the safe minimum (predicted CI
++/-0.49pp). Anything under ~1000 seeds will give over-confident error bars. Net:
+--games 1200 --flip-trials 8 (~9600 games, ~12-14 min per sweep) is the reliable
+operating point; budget downstream experiments accordingly.

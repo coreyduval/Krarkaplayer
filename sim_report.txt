@@ -1,0 +1,38 @@
+############################################################
+# Krark/Sakashima sim report (Rust engine)
+# 500 seeds (500-999) x 10 coin-flip trials = 5000 games
+# max-turns 20, go-off p>=0.95
+############################################################
+
+=== AGGREGATE ===
+  mean per-seed P(win) 98.7%   overall 4935/5000 (99%) winning trials
+  win-turn over all winning trials: mean 8.19  median 8  best 2  worst 20
+  425.8s total, 0.085s/game
+
+=== FASTEST WINNING LINE: seed 504, luck 0, won turn 2 ===
+
+=== GAME seed=504 luck=0 ===
+  OPENING : (kept 7) Mox Amber, Island, Jeska's Will, Dualcaster Mage, Spellseeker, Zndrsplt, Eye of Wisdom, Springleaf Drum
+  LIBRARY : 91 cards
+
+=== TURN 1 ===
+  LAND    : Island
+  CAST    : Mox Amber (from hand) cost {0} | float [U] +tap-> avail [U] -pay-> [U]
+  CAST    : Springleaf Drum (from hand) cost {1} | float [U *] +tap-> avail [U *] -pay-> [*]
+  CAST    : Krark, the Thumbless (from command) cost {R}{1} | float [* *] +tap-> avail [* *] -pay-> [empty]
+  CHECK   : bodies=1 doublers=0 flips/cast=1 devotion=0  best p_win=0.000
+
+=== TURN 2 ===
+  DRAW    : Snapcaster Mage
+
+=== WIN — turn 2 ===
+  [KILL] Twinflame (in hand) + Dualcaster Mage with mana for both — infinite hasty attackers.
+    - cast_perm:Spellseeker
+
+  ZONES   : lib 84 | gy 1 | treasures 0 | opp_life 160
+  PAYOFFS : seen []  | buried [Thassa's Oracle, Grapeshot, Brain Freeze]
+  COMBO   : seen [Dualcaster Mage]  | buried [Twinflame, Heat Shimmer]
+  MANA-ENG: seen [Jeska's Will]  | buried [Storm-Kiln Artist, Archmage Emeritus, Birgi, God of Storytelling, Strike It Rich, Rite of Flame, Pyretic Ritual, Desperate Ritual]
+  BURN    : seen []  | buried [Urabrask, Vivi Ornitier]
+  HAND    : Dualcaster Mage, Spellseeker, Zndrsplt, Eye of Wisdom, Snapcaster Mage, Mana Vault, Snap, Defense Grid, Ragavan, Nimble Pilferer
+  BOARD   : Mox Amber, Springleaf Drum, Krark, the Thumbless
