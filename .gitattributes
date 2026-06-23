@@ -1,0 +1,2 @@
+# Keep helper Python (rust/run.py, verify) out of language stats — this is a Rust repo
+*.py linguist-detectable=false

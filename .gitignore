@@ -6,3 +6,6 @@ __pycache__/
 # scratch
 *.tmp
 *.log
+
+# deprecated root-level Python engine (Rust is the working version)
+/*.py

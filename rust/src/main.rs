@@ -116,8 +116,14 @@ fn percentile(sorted: &[i64], pct: f64) -> i64 {
     sorted[idx.min(sorted.len() - 1)]
 }
 
-fn run_sweep(reg: &Registry, n_games: u64, trials: u64, max_turns: i64, win_threshold: f64, seed_base: u64, fizzle_fatal: bool, send_gate: f64, fast_mull: bool, rock_cutoff: i64, check_first: bool) {
-    let deck = build_deck(reg, 8, 12);
+fn run_sweep(reg: &Registry, n_games: u64, trials: u64, max_turns: i64, win_threshold: f64, seed_base: u64, fizzle_fatal: bool, send_gate: f64, fast_mull: bool, rock_cutoff: i64, check_first: bool, cut: Option<String>) {
+    let mut deck = build_deck(reg, 8, 12);
+    // Leave-one-out: drop one copy of `cut` from the deck (98 -> 97). No-op if not present.
+    if let Some(c) = &cut {
+        if let Some(pos) = deck.iter().position(|x| x == c) {
+            deck.remove(pos);
+        }
+    }
     let mut tasks: Vec<(u64, u64)> = Vec::new();
     for s in seed_base..seed_base + n_games {
         for k in 0..trials {
@@ -314,7 +320,8 @@ fn main() {
             // stop deploying mana rocks once Krark out + this many mana sources held; default off.
             let rock_cutoff: i64 = arg_val(&args, "--rock-cutoff").and_then(|v| v.parse().ok()).unwrap_or(i64::MAX);
             let check_first = args.iter().any(|a| a == "--check-first");
-            run_sweep(&reg, games, trials, max_turns, win_threshold, seed_base, fizzle_fatal, send_gate, fast_mull, rock_cutoff, check_first);
+            let cut = arg_val(&args, "--cut");
+            run_sweep(&reg, games, trials, max_turns, win_threshold, seed_base, fizzle_fatal, send_gate, fast_mull, rock_cutoff, check_first, cut);
         }
         "diag" => {
             sim::MULL_CFG.set(parse_mull_cfg(&args)).ok();
