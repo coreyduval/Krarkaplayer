@@ -237,7 +237,7 @@ pub fn discard_rank(state: &GameState, reg: &Registry, card: &str) -> f64 {
     val - redundant
 }
 
-fn pitch_worst(state: &mut GameState, reg: &Registry, k: i64) {
+pub fn pitch_worst(state: &mut GameState, reg: &Registry, k: i64) {
     for _ in 0..k {
         let pool: Vec<String> = {
             let p: Vec<String> = state
@@ -365,6 +365,44 @@ fn pop_top(state: &mut GameState) -> Option<String> {
 
 /// Run the per-card effect `n` total instances (resolutions + storm copies). `rng` is used by
 /// Gamble's random discard. Returns true if the card had a scripted effect.
+/// Does `name`'s ETB tutor still have a legal target in the library?
+fn etb_has_target(state: &GameState, reg: &Registry, name: &str) -> bool {
+    match name {
+        "Spellseeker" => state
+            .library
+            .iter()
+            .any(|c| reg.get(c).is_instant_or_sorcery() && reg.get(c).mana_value <= 2),
+        "Imperial Recruiter" => state
+            .library
+            .iter()
+            .any(|c| reg.get(c).types.contains(&CardType::Creature)),
+        _ => false,
+    }
+}
+
+/// Snap "return target creature to hand": the value play is bouncing your OWN spent ETB tutor and
+/// recasting it for another trigger. Modeled as the net effect (pay the recast cost + re-fire the
+/// ETB) for the best on-board tutor that still has a target. GATED on clear SURPLUS mana so it can
+/// never spend mana a kill needs. The body is treated as staying in play (it doesn't attack here).
+fn snap_bounce_recast(state: &mut GameState, reg: &Registry) {
+    for name in ["Spellseeker", "Imperial Recruiter"] {
+        if !state.battlefield.iter().any(|p| p.effective_name() == name) {
+            continue;
+        }
+        let cost = reg.get(name).cost.clone();
+        let cost_total: i64 = cost.values().sum();
+        if state.mana.total() < cost_total + 2 {
+            continue; // keep a buffer; never starve the kill for a tutor
+        }
+        if !state.mana.can_pay(&cost) || !etb_has_target(state, reg, name) {
+            continue;
+        }
+        state.mana.pay(&cost);
+        apply_etb(state, reg, name);
+        return; // one bounce-recast per Snap resolution
+    }
+}
+
 fn run_effect<R: Rng + ?Sized>(
     state: &mut GameState,
     reg: &Registry,
@@ -409,6 +447,8 @@ fn run_effect<R: Rng + ?Sized>(
             for _ in 0..n {
                 let refund = untap_lands_mana(state, reg, cap);
                 state.mana.add_cost(&refund);
+                // bounce a spent ETB tutor and recast it for another trigger (surplus-gated)
+                snap_bounce_recast(state, reg);
             }
             true
         }

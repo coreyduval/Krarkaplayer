@@ -302,8 +302,14 @@ pub fn do_cast<R: Rng + ?Sized>(
     for (k, v) in &extra_mana {
         *cost.entry(k.clone()).or_insert(0) += v;
     }
+    // A flashback / jump-start recast pays its graveyard cost, not the card's normal cost.
+    if source == "flashback" {
+        if let Some((fb, _)) = flashback_cost(card) {
+            cost = fb;
+        }
+    }
 
-    if source == "escape" || source == "gale" {
+    if source == "escape" || source == "gale" || source == "flashback" {
         if let Some(pos) = s.graveyard.iter().position(|c| c == card) {
             s.graveyard.remove(pos);
         }
@@ -320,6 +326,11 @@ pub fn do_cast<R: Rng + ?Sized>(
         }
     } else if source == "escape" {
         exile_fuel(&mut s, reg, 3, &keep);
+    } else if source == "flashback" {
+        // jump-start additionally costs discarding a card
+        if let Some((_, true)) = flashback_cost(card) {
+            crate::resolver::pitch_worst(&mut s, reg, 1);
+        }
     }
 
     let mut choices = Choices::default();
@@ -335,8 +346,42 @@ pub fn do_cast<R: Rng + ?Sized>(
             s.graveyard.remove(pos);
             s.exile.push(card.to_string());
         }
+    } else if source == "flashback" {
+        // Flashback / jump-start EXILE when the spell would leave the stack: whether it resolved
+        // (now in the graveyard) OR Krark lost the flip and returned it (now in hand). Either way it
+        // goes to exile — it cannot loop or return to hand. [user rules note]
+        if let Some(pos) = s.hand.iter().position(|c| c == card) {
+            s.hand.remove(pos);
+        } else if let Some(pos) = s.graveyard.iter().position(|c| c == card) {
+            s.graveyard.remove(pos);
+        }
+        s.exile.push(card.to_string());
     }
     Some((s, log))
+}
+
+/// Native flashback / jump-start recast: (graveyard cost, needs-a-card-to-discard). Both keywords
+/// EXILE the card when it would leave the stack — including a Krark return-to-hand — so unlike an
+/// escape/hand cast, a flashback cast can't loop or go back to hand. Handled in `do_cast`.
+fn flashback_cost(card: &str) -> Option<(std::collections::HashMap<String, i64>, bool)> {
+    let mk = |pairs: &[(&str, i64)]| -> std::collections::HashMap<String, i64> {
+        pairs.iter().map(|(k, v)| (k.to_string(), *v)).collect()
+    };
+    match card {
+        "Strike It Rich" => Some((mk(&[("generic", 2), ("R", 1)]), false)), // Flashback {2}{R}
+        "Quasiduplicate" => Some((mk(&[("generic", 1), ("U", 2)]), true)),  // Jump-start (+discard)
+        _ => None,
+    }
+}
+
+pub fn can_flashback(s: &GameState, reg: &Registry, card: &str) -> bool {
+    let needs_discard = match flashback_cost(card) {
+        Some((_, d)) => d,
+        None => return false,
+    };
+    s.graveyard.iter().any(|c| c == card)
+        && !reg.get(card).types.contains(&CardType::Land)
+        && !(needs_discard && s.hand.is_empty()) // jump-start needs a card to pitch
 }
 
 pub fn cast_source(s: &GameState, reg: &Registry, card: &str) -> Option<String> {
@@ -348,6 +393,10 @@ pub fn cast_source(s: &GameState, reg: &Registry, card: &str) -> Option<String> 
     }
     if can_escape(s, reg, card) {
         return Some("escape".to_string());
+    }
+    // Flashback/jump-start last: it's a one-shot (exiles), so prefer a loopable escape when Breach is out.
+    if can_flashback(s, reg, card) {
+        return Some("flashback".to_string());
     }
     None
 }
