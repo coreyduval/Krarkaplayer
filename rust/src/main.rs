@@ -71,6 +71,15 @@ fn arg_val(args: &[String], flag: &str) -> Option<String> {
     args.iter().position(|a| a == flag).and_then(|i| args.get(i + 1)).cloned()
 }
 
+/// All values for a flag that may appear more than once (e.g. repeated `--cut`/`--add`).
+fn arg_vals(args: &[String], flag: &str) -> Vec<String> {
+    args.iter()
+        .enumerate()
+        .filter(|(_, a)| a.as_str() == flag)
+        .filter_map(|(i, _)| args.get(i + 1).cloned())
+        .collect()
+}
+
 // Mulligan experiment axes: --keep-min-lands N (A), --keep-gate fast|mana|none (B), --mull-depth N (C).
 fn parse_mull_cfg(args: &[String]) -> sim::MullCfg {
     let min_lands = arg_val(args, "--keep-min-lands").and_then(|v| v.parse().ok()).unwrap_or(1);
@@ -116,13 +125,24 @@ fn percentile(sorted: &[i64], pct: f64) -> i64 {
     sorted[idx.min(sorted.len() - 1)]
 }
 
-fn run_sweep(reg: &Registry, n_games: u64, trials: u64, max_turns: i64, win_threshold: f64, seed_base: u64, fizzle_fatal: bool, send_gate: f64, fast_mull: bool, rock_cutoff: i64, check_first: bool, cut: Option<String>) {
+fn run_sweep(reg: &Registry, n_games: u64, trials: u64, max_turns: i64, win_threshold: f64, seed_base: u64, fizzle_fatal: bool, send_gate: f64, fast_mull: bool, rock_cutoff: i64, check_first: bool, cuts: Vec<String>, adds: Vec<String>) {
     let mut deck = build_deck(reg, 8, 12);
-    // Leave-one-out: drop one copy of `cut` from the deck (98 -> 97). No-op if not present.
-    if let Some(c) = &cut {
+    // Leave-one-out / manabase swaps: drop one copy per `--cut`, append one copy per `--add`.
+    // A land<->spell swap is `--cut Mountain --add Ponder` (deck stays 98). No-op if a cut isn't present.
+    for c in &cuts {
         if let Some(pos) = deck.iter().position(|x| x == c) {
             deck.remove(pos);
         }
+    }
+    for a in &adds {
+        if reg.ordered_names().iter().any(|n| n == a) {
+            deck.push(a.clone());
+        } else {
+            eprintln!("warning: --add '{a}' not in registry; skipped");
+        }
+    }
+    if !cuts.is_empty() || !adds.is_empty() {
+        println!("  DECK MOD: cut [{}]  add [{}]  -> {} cards", cuts.join(", "), adds.join(", "), deck.len());
     }
     let mut tasks: Vec<(u64, u64)> = Vec::new();
     for s in seed_base..seed_base + n_games {
@@ -312,16 +332,18 @@ fn main() {
             let win_threshold: f64 = arg_val(&args, "--win-threshold").and_then(|v| v.parse().ok()).unwrap_or(0.95);
             let seed_base: u64 = arg_val(&args, "--seed").and_then(|v| v.parse().ok()).unwrap_or(0);
             let fizzle_fatal = args.iter().any(|a| a == "--fizzle-fatal");
-            // commit gate used when a fizzle ISN'T fatal. Default 0.50 (validated faster, no win-rate
-            // cost): send aggressively when trying is free, keep win_threshold when a fizzle is fatal.
-            let send_gate: f64 = arg_val(&args, "--send-gate").and_then(|v| v.parse().ok()).unwrap_or(0.50);
+            // commit gate used when a fizzle ISN'T fatal. Default 0.20 (validated best at 1200x8:
+            // 99.4% / 7.79 turns vs 0.50's 99.3% / 7.87 — plateaus flat to 0.10, lower just costs solve
+            // time): send aggressively when trying is free, keep win_threshold when a fizzle is fatal.
+            let send_gate: f64 = arg_val(&args, "--send-gate").and_then(|v| v.parse().ok()).unwrap_or(0.20);
             // mulligan-for-speed default ON (validated free −0.09 turns); opt out with --no-fast-mull.
             let fast_mull = !args.iter().any(|a| a == "--no-fast-mull");
             // stop deploying mana rocks once Krark out + this many mana sources held; default off.
             let rock_cutoff: i64 = arg_val(&args, "--rock-cutoff").and_then(|v| v.parse().ok()).unwrap_or(i64::MAX);
             let check_first = args.iter().any(|a| a == "--check-first");
-            let cut = arg_val(&args, "--cut");
-            run_sweep(&reg, games, trials, max_turns, win_threshold, seed_base, fizzle_fatal, send_gate, fast_mull, rock_cutoff, check_first, cut);
+            let cuts = arg_vals(&args, "--cut");
+            let adds = arg_vals(&args, "--add");
+            run_sweep(&reg, games, trials, max_turns, win_threshold, seed_base, fizzle_fatal, send_gate, fast_mull, rock_cutoff, check_first, cuts, adds);
         }
         "diag" => {
             sim::MULL_CFG.set(parse_mull_cfg(&args)).ok();
@@ -333,7 +355,7 @@ fn main() {
             let fast_mull = !args.iter().any(|a| a == "--no-fast-mull");
             let mut game = sim::SimGame::new(&reg, &deck, seed, 0.95, fast_mull);
             game.set_dev_seed(seed.wrapping_mul(1_000_003).wrapping_add(luck));
-            game.set_send_gate(0.50); // match the sweep's default aggressive commit gate
+            game.set_send_gate(0.20); // match the sweep's default aggressive commit gate
             game.verbose = true;
             println!("=== GAME seed={seed} luck={luck} ===");
             game.print_opening();

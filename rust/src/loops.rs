@@ -1139,6 +1139,27 @@ pub fn selftest(reg: &Registry) {
         println!("[ok] loops: analyze_runaway Jeska's Will -> {} (net mana/cast {:.2})", ra.kind, ra.e_net_mana_per_cast);
     }
 
+    // Krark's Thumb: choosing to LOSE one flip keeps a low-body loop alive, so p_return follows the
+    // choice (1 - 0.25^f), not the naive better-coin (1 - 0.75^f) which at f=1 wrongly read 0.25 < 0.5
+    // and de-classed the engine. One Krark + Thumb -> f=1 -> p_return must be ~0.75.
+    {
+        let s = GameState {
+            library: vec!["Island".into(); 40],
+            hand: vec!["Brainstorm".into()],
+            battlefield: vec![
+                krark_body("Krark, the Thumbless", None, false),
+                Permanent { summoning_sick: false, ..Permanent::new("Krark's Thumb") },
+                Permanent { summoning_sick: false, ..Permanent::new("Storm-Kiln Artist") },
+            ],
+            ..Default::default()
+        };
+        assert!(s.has_krarks_thumb());
+        assert_eq!(s.flips_per_cast(reg), 1, "one Krark body -> f=1");
+        let ra = analyze_runaway(&s, reg, "Brainstorm");
+        assert!((ra.p_return - 0.75).abs() < 0.01, "Thumb f=1 p_return={} (expected 0.75)", ra.p_return);
+        println!("[ok] loops: Krark's Thumb f=1 -> p_return={:.2} (choose-to-lose keeps the loop alive)", ra.p_return);
+    }
+
     // estimate_p_lethal: Jeska + payoffs in hand -> high p_win
     {
         let mut s = GameState {

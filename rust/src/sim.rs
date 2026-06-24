@@ -1174,12 +1174,22 @@ impl<'a> SimGame<'a> {
             let lib = state.library.len() as i64;
             let treasure_dig_out = state.hand.iter().any(|c| c == "Thassa's Oracle")
                 && state.mana.treasures >= 2 * (lib - dev).max(0) / flips + 2;
-            let sustaining = state.krark_bodies(self.reg) >= 1
-                && (["Storm-Kiln Artist", "Birgi, God of Storytelling", "Urabrask", "Tavern Scoundrel"]
-                    .iter()
-                    .any(|n| state.has_permanent(n))
-                    || treasure_dig_out);
-            let closing = oracle_acc && sustaining;
+            let krark = state.krark_bodies(self.reg) >= 1;
+            let engine_perm = ["Storm-Kiln Artist", "Birgi, God of Storytelling", "Urabrask", "Tavern Scoundrel"]
+                .iter()
+                .any(|n| state.has_permanent(n));
+            // Oracle closes by drawing the library down to devotion, so raw treasures (which fund the
+            // dig) suffice. Grapeshot (burn) and Brain Freeze (mill) close on STORM COUNT, not library
+            // size, so digging past the floor only pays off with a real storm engine that keeps the
+            // count climbing — raw treasures can't reach the ~160-storm burn. Gating the burn/mill
+            // close on an engine permanent keeps it from decking us out chasing an unreachable kill.
+            let oracle_close = oracle_acc && krark && (engine_perm || treasure_dig_out);
+            let burn_acc = state.hand.iter().any(|c| c == "Grapeshot")
+                || loops::can_escape(&state, self.reg, "Grapeshot");
+            let mill_acc = state.hand.iter().any(|c| c == "Brain Freeze")
+                || loops::can_escape(&state, self.reg, "Brain Freeze");
+            let burn_close = (burn_acc || mill_acc) && krark && engine_perm;
+            let closing = oracle_close || burn_close;
             let floor = 8.max(dev + 4);
             if !closing && (state.library.len() as i64) <= floor {
                 break;

@@ -75,7 +75,15 @@ pub fn analyze_cast(state: &GameState, reg: &Registry, card_name: &str) -> CastA
     };
     let pmf = if f > 0 { binom_pmf(f, p) } else { vec![1.0] };
     let e_wins = f as f64 * p;
-    let p_resolve = if f > 0 { p.powi(f as i32) } else { 1.0 };
+    // Krark's Thumb lets you CHOOSE each flip (flip two coins, keep one), so you deliberately LOSE
+    // one flip to return the spell to hand and keep the loop alive, winning the rest for copies.
+    // Continuation only fails if every trigger rolls two heads (no flip can be made a loss): 0.25^f.
+    // Without the Thumb the spell resolves (loop ends) only when all flips naturally win: p^f (p=0.5).
+    let p_resolve = if f > 0 {
+        if state.has_krarks_thumb() { 0.25_f64.powi(f as i32) } else { p.powi(f as i32) }
+    } else {
+        1.0
+    };
     let p_return = 1.0 - p_resolve;
     let e_copies = e_wins;
 
@@ -558,8 +566,46 @@ pub fn resolve_cast_sample<R: Rng + ?Sized>(
     };
     state.storm_count += 1;
 
+    // Krark's Thumb: each Krark trigger flips TWO coins and you keep one, so you steer each flip.
+    // The player's goal decides the steer: to keep a free loop alive you reserve one flip as a LOSS
+    // (return spell to hand) and win the rest (copies); to bank the spell's own effect you win out.
+    // Continuing beats resolving when a recast is worth more than the spell resolving now: with f>=2
+    // a won copy still resolves the effect at least once, and with f==1 it only pays if a cast/copy/
+    // flip-win value engine fires per cast. Without an engine at f==1 we resolve (win) instead.
+    let thumb = state.has_krarks_thumb();
+    let has_cast_engine = thumb
+        && state.value_engines(reg).iter().any(|(_, e)| {
+            matches!(
+                e.trigger_cause.as_deref(),
+                Some("is_cast") | Some("is_cast_or_copy") | Some("coin_flip_win")
+            )
+        });
     let wins = match forced_wins {
         Some(fw) => fw.max(0).min(f),
+        None if thumb && f > 0 => {
+            // Roll two coins per trigger; classify which outcomes a trigger can be steered to.
+            let mut both_heads = 0i64; // forced WIN  (can't be made a loss)
+            let mut both_tails = 0i64; // forced LOSS (can't be made a win)
+            for _ in 0..f {
+                let a = rng.gen::<bool>();
+                let b = rng.gen::<bool>();
+                match (a, b) {
+                    (true, true) => both_heads += 1,
+                    (false, false) => both_tails += 1,
+                    _ => {} // "either": free choice
+                }
+            }
+            let eithers = f - both_heads - both_tails;
+            let want_continue = f >= 2 || has_cast_engine;
+            if want_continue && (both_tails + eithers) >= 1 {
+                // Reserve ONE flip as the loss (a forced-loss is free; else spend an "either"),
+                // win every other steerable flip.
+                if both_tails >= 1 { both_heads + eithers } else { both_heads + eithers - 1 }
+            } else {
+                // Resolve: win every flip we can (loop ends, spell's effect banked).
+                both_heads + eithers
+            }
+        }
         None => (0..f).filter(|_| rng.gen::<f64>() < p).count() as i64,
     };
     let all_won = f == 0 || wins == f;
