@@ -221,6 +221,8 @@ fn convert_available(s: &GameState, reg: &Registry, color: &str, need: i64) -> b
     }
     // Relic of Legends' creature-tap ability: each idle legendary creature is one any-color mana.
     have += s.relic_legend_mana();
+    // Vivi Ornitier's once-per-turn {0} ability: add its power (= noncreature spells cast) as U/R.
+    have += s.vivi_available_mana();
     // dedup-preserving-order over hand
     let mut seen: HashSet<&str> = HashSet::new();
     for name in &s.hand {
@@ -306,7 +308,7 @@ pub fn do_cast<R: Rng + ?Sized>(
             s.graveyard.remove(pos);
         }
     }
-    while !s.mana.can_pay(&cost) && breach_led_mana(&mut s, reg, &keep) {}
+    while !s.mana.can_pay(&cost) && (breach_led_mana(&mut s, reg, &keep) || s.vivi_mana()) {}
     if !s.mana.can_pay(&cost) {
         return None;
     }

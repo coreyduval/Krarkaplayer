@@ -327,6 +327,11 @@ pub struct GameState {
 
     pub infinite: HashSet<String>,
     pub game_result: Option<String>,
+
+    /// Vivi Ornitier: power = +1/+1 counters = noncreature spells cast while it's been in play
+    /// (persists across turns). Its {0} once-per-turn ability adds `vivi_power` U/R (modeled as `*`).
+    pub vivi_power: i64,
+    pub vivi_mana_used: bool,
 }
 
 impl Default for GameState {
@@ -348,6 +353,8 @@ impl Default for GameState {
             our_life: STARTING_LIFE,
             infinite: HashSet::new(),
             game_result: None,
+            vivi_power: 0,
+            vivi_mana_used: false,
         }
     }
 }
@@ -447,6 +454,31 @@ impl GameState {
         self.battlefield.iter().any(|p| p.effective_name() == "Krark's Thumb")
     }
 
+    pub fn has_vivi(&self) -> bool {
+        self.battlefield.iter().any(|p| p.effective_name() == "Vivi Ornitier")
+    }
+
+    /// Mana still available from Vivi's once-per-turn {0} ability (= its power); 0 if used/absent.
+    pub fn vivi_available_mana(&self) -> i64 {
+        if self.has_vivi() && !self.vivi_mana_used && self.vivi_power > 0 {
+            self.vivi_power
+        } else {
+            0
+        }
+    }
+
+    /// Fire Vivi's {0} ability (once per turn): add `power` wildcard mana. Returns false when
+    /// unavailable (no Vivi / already used / 0 power) so a payment retry-loop knows to stop.
+    pub fn vivi_mana(&mut self) -> bool {
+        if self.has_vivi() && !self.vivi_mana_used && self.vivi_power > 0 {
+            self.mana.add("*", self.vivi_power);
+            self.vivi_mana_used = true;
+            true
+        } else {
+            false
+        }
+    }
+
     /// Single-flip win probability. Thumb -> 0.75 else 0.50.
     pub fn flip_p(&self) -> f64 {
         if self.has_krarks_thumb() {
@@ -476,6 +508,15 @@ impl GameState {
     pub fn cast_cost<'a>(&self, reg: &'a Registry, card_name: &str) -> std::borrow::Cow<'a, ManaCost> {
         use std::borrow::Cow;
         let grid = !self.is_my_turn && self.defense_grid();
+        // Baral, Chief of Compliance makes your instant/sorcery spells cost {1} less each (generic
+        // only, never below 0). Clones of Baral stack. This was applied in SimGame::cast_cost but
+        // NOT here — so the go-off/runaway math (do_cast / estimate_p_lethal / analyze_runaway, which
+        // all route through this function) priced every I/S {1} too high whenever Baral was out.
+        let baral = if reg.get(card_name).is_instant_or_sorcery() {
+            self.count_functioning("Baral, Chief of Compliance")
+        } else {
+            0
+        };
         if FREE_WITH_COMMANDER.contains(&card_name) && self.controls_commander() {
             let mut cost = HashMap::new();
             if grid {
@@ -484,9 +525,15 @@ impl GameState {
             return Cow::Owned(cost);
         }
         let base = &reg.get(card_name).cost;
-        if grid {
+        if grid || baral > 0 {
             let mut cost = base.clone();
-            *cost.entry("generic".to_string()).or_insert(0) += 3;
+            if grid {
+                *cost.entry("generic".to_string()).or_insert(0) += 3;
+            }
+            if baral > 0 {
+                let g = cost.get("generic").copied().unwrap_or(0);
+                cost.insert("generic".to_string(), (g - baral).max(0));
+            }
             Cow::Owned(cost)
         } else {
             Cow::Borrowed(base)

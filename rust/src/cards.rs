@@ -272,8 +272,9 @@ fn apply_engine(name: &str, cd: &mut CardDef) {
             cd.trigger_cause = Some("coin_flip_win".into());
         }
         "Vivi Ornitier" => {
+            // 3 damage (one per opponent in a 4-player pod) on each I/S CAST -- not on Krark copies.
+            // The per-cast {*} mana infusion is UNCONFIRMED for this card, so it is NOT modeled.
             cd.damage_per_trigger = 3;
-            cd.mana_per_trigger = mana("*");
             cd.trigger_cause = Some("is_cast".into());
         }
         "Zndrsplt, Eye of Wisdom" => {

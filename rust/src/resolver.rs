@@ -565,6 +565,11 @@ pub fn resolve_cast_sample<R: Rng + ?Sized>(
         0
     };
     state.storm_count += 1;
+    // Vivi Ornitier gets a +1/+1 counter on each noncreature CAST (this fn only runs for I/S casts,
+    // which are noncreature; copies aren't "cast" so they don't count). Power persists across turns.
+    if state.has_vivi() {
+        state.vivi_power += 1;
+    }
 
     // Krark's Thumb: each Krark trigger flips TWO coins and you keep one, so you steer each flip.
     // The player's goal decides the steer: to keep a free loop alive you reserve one flip as a LOSS

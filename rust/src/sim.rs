@@ -219,6 +219,8 @@ pub struct SimGame<'a> {
     command_zone: Vec<String>,
     cmd_tax: HashMap<String, i64>,
     one_ring: i64,
+    vivi_power: i64,        // Vivi Ornitier's accumulated +1/+1 counters (persists across turns)
+    vivi_mana_used: bool,   // Vivi's {0} mana ability is once per turn; reset each turn
     treasures: i64,
     opponent_life: Vec<i64>,
     our_life: i64,
@@ -266,6 +268,8 @@ impl<'a> SimGame<'a> {
                 ("Sakashima of a Thousand Faces".to_string(), 0),
             ]),
             one_ring: 0,
+            vivi_power: 0,
+            vivi_mana_used: false,
             treasures: 0,
             opponent_life: vec![160],
             our_life: crate::game_state::STARTING_LIFE,
@@ -759,6 +763,8 @@ impl<'a> SimGame<'a> {
             is_my_turn: true,
             opponent_life: self.opponent_life.clone(),
             our_life: self.our_life,
+            vivi_power: self.vivi_power,
+            vivi_mana_used: self.vivi_mana_used,
             ..Default::default()
         }
     }
@@ -1276,6 +1282,8 @@ impl<'a> SimGame<'a> {
         self.graveyard = state.graveyard.clone();
         pool.treasures = state.mana.treasures;
         self.opponent_life = state.opponent_life.clone();
+        self.vivi_power = state.vivi_power; // counters earned developing persist across turns
+        self.vivi_mana_used = state.vivi_mana_used; // honor once-per-turn into the go-off
         cast
     }
 
@@ -1295,6 +1303,7 @@ impl<'a> SimGame<'a> {
         self.scan_nowin.clear(); // #3 memo is per-turn
         self.exile_gas = HashMap::new();
         self.played_land = false;
+        self.vivi_mana_used = false; // Vivi's {0} ability recharges each turn
         if self.verbose {
             println!("\n=== TURN {} ===", self.turn);
         }
@@ -1305,6 +1314,24 @@ impl<'a> SimGame<'a> {
         }
 
         let mut pool = ManaPool { slots: [0; 7], treasures: self.treasures };
+
+        // Ragavan, Nimble Pilferer: vs inert opponents it connects in combat every turn it's been in
+        // play, making one Treasure. We bank it at turn start from the PERSISTENT board, which models
+        // both the combat timing (the Treasure from last turn's swing is available now) and summoning
+        // sickness (a Ragavan deployed THIS turn isn't on the board yet here). The impulse-exiled card
+        // is ignored. NOTE: a turn that WINS via combat can't also bank this Treasure, but combat wins
+        // don't need the mana, so the value is the ramp accumulated across prior turns.
+        let ragavan = self
+            .board_names()
+            .iter()
+            .filter(|n| n.as_str() == "Ragavan, Nimble Pilferer")
+            .count() as i64;
+        if ragavan > 0 {
+            pool.treasures += ragavan;
+            if self.verbose {
+                println!("  RAGAVAN : +{ragavan} Treasure (combat)");
+            }
+        }
 
         // play first land
         if let Some(card) = self.hand.iter().find(|c| is_land_name(c)).cloned() {
