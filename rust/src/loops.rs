@@ -511,20 +511,21 @@ pub fn develop_candidates(s: &GameState, reg: &Registry) -> Vec<(String, String)
         .battlefield
         .iter()
         .any(|p| p.functions_as(reg).types.contains(&CardType::Creature));
-    let cast_value_engine = CAST_VALUE_ENGINES.iter().any(|n| s.has_permanent(n));
-
     let ok = |c: &str| -> bool {
         let cd = reg.get(c);
         if !(cd.is_instant_or_sorcery() && !PAYOFF_ONLY.contains(&c)) {
             return false;
         }
         if MAGECRAFT_FUEL.contains(&c) {
-            // Loop the counter if a per-cast value engine is out, OR if there are >=2 counters in
-            // hand — two free counters can target each other to sustain the loop with no engine
-            // (pure storm -> Grapeshot/Brain Freeze). [gap-fix test 2026-06-23]
+            // A counter (or Cyclonic Rift) needs a legal TARGET. In a solitaire goldfish there are no
+            // opponent spells/permanents to target, so the only legal way to loop these is >=2 of
+            // them targeting EACH OTHER (ping-pong) -> pure storm into Grapeshot/Brain Freeze. A LONE
+            // counter is NOT loopable just because a value engine is out: a permanent can't be a
+            // counter's target. [fix 2026-06-23: dropped the cast_value_engine permission, which was
+            // letting a single counter loop into an empty stack with no legal target.]
             let two_counters =
                 s.hand.iter().filter(|h| MAGECRAFT_FUEL.contains(&h.as_str())).count() >= 2;
-            if !cast_value_engine && !two_counters {
+            if !two_counters {
                 return false;
             }
             // The loop only sustains if the RIGHT-color mana is there each cast. Free fuel needs

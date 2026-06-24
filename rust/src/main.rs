@@ -326,6 +326,7 @@ fn main() {
         }
         "sweep" => {
             sim::MULL_CFG.set(parse_mull_cfg(&args)).ok();
+            sim::DEV_CAP.set(arg_val(&args, "--dev-cap").and_then(|v| v.parse().ok()).unwrap_or(12)).ok();
             let games: u64 = arg_val(&args, "--games").and_then(|v| v.parse().ok()).unwrap_or(30);
             let trials: u64 = arg_val(&args, "--flip-trials").and_then(|v| v.parse().ok()).unwrap_or(10);
             let max_turns: i64 = arg_val(&args, "--max-turns").and_then(|v| v.parse().ok()).unwrap_or(18);
@@ -347,6 +348,7 @@ fn main() {
         }
         "diag" => {
             sim::MULL_CFG.set(parse_mull_cfg(&args)).ok();
+            sim::DEV_CAP.set(arg_val(&args, "--dev-cap").and_then(|v| v.parse().ok()).unwrap_or(12)).ok();
             // Verbose single-game log: `krarksim diag --seed N [--luck L] [--max-turns T]`.
             let seed: u64 = arg_val(&args, "--seed").and_then(|v| v.parse().ok()).unwrap_or(0);
             let luck: u64 = arg_val(&args, "--luck").and_then(|v| v.parse().ok()).unwrap_or(0);

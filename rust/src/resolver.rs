@@ -195,10 +195,6 @@ pub fn untap_lands_mana(state: &GameState, reg: &Registry, cap: i64) -> ManaCost
     out
 }
 
-const NEVER_DISCARD: &[&str] = &[
-    "Thassa's Oracle", "Grapeshot", "Brain Freeze", "Underworld Breach",
-    "Gale, Waterdeep Prodigy", "Twinflame", "Heat Shimmer", "Dualcaster Mage",
-];
 
 const MANA_ROCK_NAMES: &[&str] = &[
     "Sol Ring", "Mana Vault", "Chrome Mox", "Mox Amber", "Mox Diamond", "Lotus Petal",
@@ -211,8 +207,19 @@ fn is_source(reg: &Registry, name: &str) -> bool {
 
 /// Sort key for what to DISCARD (lowest = pitch first). Mirror of discard_rank.
 pub fn discard_rank(state: &GameState, reg: &Registry, card: &str) -> f64 {
-    if NEVER_DISCARD.contains(&card) {
-        return f64::INFINITY;
+    // Win-cons / combo pieces rank above everything, but ORDERED (not a flat INFINITY) so a FORCED
+    // discard (Frantic Search etc. when the hand is all keepers) sheds the least-critical protected
+    // card -- a redundant combo piece -- and NEVER the singleton Thassa's Oracle we're digging to.
+    // (The dig used to pitch its own Oracle into the graveyard and then deck out -> brick.)
+    let protect = match card {
+        "Thassa's Oracle" => 1e9,
+        "Grapeshot" | "Brain Freeze" => 1e8,
+        "Underworld Breach" => 5e7,
+        "Dualcaster Mage" | "Twinflame" | "Heat Shimmer" | "Gale, Waterdeep Prodigy" => 1e7,
+        _ => 0.0,
+    };
+    if protect > 0.0 {
+        return protect;
     }
     let val = wishlist::card_value(state, reg, card, false);
     let mut redundant = 0.0;
@@ -238,25 +245,16 @@ pub fn discard_rank(state: &GameState, reg: &Registry, card: &str) -> f64 {
 }
 
 pub fn pitch_worst(state: &mut GameState, reg: &Registry, k: i64) {
+    // Mirror of SimGame::discard_to_hand_size (the end-of-turn discard) and mulligan bottoming: shed
+    // the worst card by discard_rank, one at a time. discard_rank keeps win-cons/combo pieces on top
+    // (Oracle highest), so a forced discard never throws the payoff while any lesser card exists.
+    // (No filter/fallback: the old fallback pitched a protected card once the hand was all keepers.)
     for _ in 0..k {
-        let pool: Vec<String> = {
-            let p: Vec<String> = state
-                .hand
-                .iter()
-                .filter(|c| !NEVER_DISCARD.contains(&c.as_str()))
-                .cloned()
-                .collect();
-            if p.is_empty() {
-                state.hand.clone()
-            } else {
-                p
-            }
-        };
-        if pool.is_empty() {
+        if state.hand.is_empty() {
             return;
         }
-        // min by discard_rank (stable: first min)
-        let worst = pool
+        let worst = state
+            .hand
             .iter()
             .min_by(|a, b| {
                 discard_rank(state, reg, a)

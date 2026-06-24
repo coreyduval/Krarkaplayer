@@ -133,6 +133,13 @@ fn mull_cfg() -> MullCfg {
     MULL_CFG.get().copied().unwrap_or_default()
 }
 
+/// Max develop casts per turn (the loop also stops earlier on no carryover-progress / the library
+/// floor). 8 under-develops; 60 over-commits to marginal go-offs; default a middle ground.
+pub static DEV_CAP: std::sync::OnceLock<usize> = std::sync::OnceLock::new();
+fn dev_cap() -> usize {
+    *DEV_CAP.get().unwrap_or(&12)
+}
+
 const SAC_ON_PLAY: &[&str] = &["Lotus Petal"];
 const DISCARD_LAND_ON_PLAY: &[&str] = &["Mox Diamond"];
 // Cards Chrome Mox should not imprint (exile) if anything else is available — payoffs/combo pieces.
@@ -1162,7 +1169,13 @@ impl<'a> SimGame<'a> {
 
         let mut cast: Vec<String> = Vec::new();
         let mut dead: HashSet<String> = HashSet::new();
-        for _ in 0..8 {
+        // Keep developing as long as casts make CARRYOVER progress (cards drawn, opponent damaged/
+        // milled, graveyard fuel) — a mana-neutral/positive loop that draws or burns can be looped as
+        // far as the kill needs. A cast that makes no carryover progress (only ephemeral storm count /
+        // floating mana, which reset next turn) marks that card `dead` and drops it; when no scoring
+        // candidate makes progress, `cands` empties and we break. 60 is just a termination backstop —
+        // the real stop is the no-progress check + the library floor (deck-out guard).
+        for _ in 0..dev_cap() {
             if state.hand.iter().any(|nm| is_engine_permanent(self.reg, nm)) {
                 if !deploy_engine_perms(&mut state, self.reg).is_empty() {
                     recompute(&state, &mut scores, self.reg);
@@ -1222,7 +1235,18 @@ impl<'a> SimGame<'a> {
                 let sb = scores.get(&b.0).copied().unwrap_or(0.0);
                 sb.partial_cmp(&sa).unwrap_or(std::cmp::Ordering::Equal)
             });
-            let sig = |g: &GameState| (g.library.len(), g.graveyard.len(), g.opponent_life.iter().sum::<i64>());
+            // Carryover progress: cards drawn/milled (library), graveyard fuel, opponent damage, and
+            // opponent mill. Deliberately EXCLUDES storm count, floating mana, and treasures — those
+            // either reset next turn or are mere fuel, so a loop that only spins them isn't "progress"
+            // and gets dropped (prevents e.g. an infinite no-draw treasure loop).
+            let sig = |g: &GameState| {
+                (
+                    g.library.len(),
+                    g.graveyard.len(),
+                    g.opponent_life.iter().sum::<i64>(),
+                    g.opponent_library.iter().sum::<i64>(),
+                )
+            };
             let before = sig(&state);
             let mut nxt: Option<(GameState, ResolveLog)> = None;
             let mut chosen = String::new();
