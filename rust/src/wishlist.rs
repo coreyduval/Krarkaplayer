@@ -126,7 +126,10 @@ pub fn card_value(s: &GameState, reg: &Registry, name: &str, for_tutor: bool) ->
         score += 80.0;
     }
     if DOUBLERS.contains(&name) && s.trigger_doublers(reg) == 0 {
-        score += 60.0;
+        // A doubler MULTIPLIES flips_per_cast (bodies × (1+doublers)) and doubles every engine
+        // trigger, so with a body out it beats fetching a 2nd body (+80): 2 Krarks + doubler = 4
+        // flips vs +1 body = 3, and the gap widens with more bodies. Dead without a body, so low at 0.
+        score += if bodies >= 1 { 88.0 } else { 30.0 };
     }
     if name == "Krark's Thumb" && !s.has_permanent("Krark's Thumb") {
         score += 50.0;
