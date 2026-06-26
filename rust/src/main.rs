@@ -209,6 +209,11 @@ fn run_sweep(reg: &Registry, n_games: u64, trials: u64, max_turns: i64, win_thre
         total,
         100.0 * total_wins as f64 / total as f64
     );
+    // Penalized TTK: count any non-win (didn't win by max_turns) as turn 15, averaged over ALL games.
+    // One comparable number for "how fast does it close, losses included" (lower = better).
+    let pen_ttk: f64 =
+        results.iter().map(|r| if r.won { r.turn } else { 15 }).sum::<i64>() as f64 / total as f64;
+    println!("  TTK (losses=turn 15): {:.2}  over all {} games", pen_ttk, total);
     if !all_turns.is_empty() {
         all_turns.sort();
         let mean: f64 = all_turns.iter().sum::<i64>() as f64 / all_turns.len() as f64;
@@ -603,9 +608,12 @@ fn main() {
             loops::PRE_KRARK_DIG.set(args.iter().any(|a| a == "--precrark-dig")).ok();
             sim::SMART_LAND.set(!args.iter().any(|a| a == "--no-smart-land")).ok();
             sim::ADAPTIVE_GATE.set(args.iter().any(|a| a == "--adaptive-gate")).ok();
+            wishlist::JESKA_BOOST.set(!args.iter().any(|a| a == "--no-jeska-boost")).ok();
             let games: u64 = arg_val(&args, "--games").and_then(|v| v.parse().ok()).unwrap_or(30);
             let trials: u64 = arg_val(&args, "--flip-trials").and_then(|v| v.parse().ok()).unwrap_or(10);
-            let max_turns: i64 = arg_val(&args, "--max-turns").and_then(|v| v.parse().ok()).unwrap_or(18);
+            // cEDH default: games are decided by ~turn 12, so cap compute there (faster; the slow tail
+            // is ~worthless anyway). TTK(losses=15) penalizes non-wins instead of dropping them.
+            let max_turns: i64 = arg_val(&args, "--max-turns").and_then(|v| v.parse().ok()).unwrap_or(12);
             let win_threshold: f64 = arg_val(&args, "--win-threshold").and_then(|v| v.parse().ok()).unwrap_or(0.95);
             let seed_base: u64 = arg_val(&args, "--seed").and_then(|v| v.parse().ok()).unwrap_or(0);
             let fizzle_fatal = args.iter().any(|a| a == "--fizzle-fatal");

@@ -796,8 +796,15 @@ pub fn max_draws(s: &GameState, reg: &Registry, card: &str) -> f64 {
 /// One-line trace of a single cast (verbose diag only). `tag` distinguishes go-off ("FLIP") from
 /// develop ("DEV ") casts.
 pub fn trace_cast_line(tag: &str, step: i64, card: &str, log: &ResolveLog, pre: &GameState, post: &GameState) -> String {
-    let cast = if log.flips > 0 {
-        format!("{} flips/{} won/{} resolutions", log.flips, log.wins, log.resolutions)
+    // Flip outcome right after the card name: (heads won / coins flipped). Krark's Thumb flips two
+    // coins per body and keeps one, so a 3-body cast is "(W/6)".
+    let flip = if log.flips > 0 {
+        format!(" ({}/{})", log.wins, log.flips)
+    } else {
+        String::new()
+    };
+    let res = if log.flips > 0 {
+        format!("{} resolutions", log.resolutions)
     } else {
         "1 resolution".to_string()
     };
@@ -854,7 +861,7 @@ pub fn trace_cast_line(tag: &str, step: i64, card: &str, log: &ResolveLog, pre: 
     }
     let fx_s = if fx.is_empty() { "(no carryover)".to_string() } else { fx.join(", ") };
     format!(
-        "    {tag}{step:>2}: {card:<22} {cast}\n           -> effect: {fx_s}  |  mana left: {} (storm {})  |  opp {} life",
+        "    {tag}{step:>2}: {card}{flip}\n           -> {res}  |  {fx_s}  |  mana left: {} (storm {})  |  opp {} life",
         post.mana.total(),
         post.storm_count,
         live(post)

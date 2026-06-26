@@ -4,6 +4,13 @@
 use crate::cards::Registry;
 use crate::game_state::GameState;
 
+/// A/B toggle for the raised Jeska's Will tutor/keep priority (default ON; --no-jeska-boost to A/B
+/// against the old 35/60 values).
+pub static JESKA_BOOST: std::sync::OnceLock<bool> = std::sync::OnceLock::new();
+fn jeska_boost() -> bool {
+    *JESKA_BOOST.get().unwrap_or(&true)
+}
+
 const PAYOFFS: &[&str] = &["Thassa's Oracle", "Grapeshot", "Brain Freeze"];
 const BODIES: &[&str] = &[
     "Krark, the Thumbless", "Sakashima of a Thousand Faces", "Glasspool Mimic", "Phantasmal Image",
@@ -131,7 +138,14 @@ pub fn card_value(s: &GameState, reg: &Registry, name: &str, for_tutor: bool) ->
         score += 40.0;
     }
     if name == "Jeska's Will" {
-        score += if bodies >= 1 { 60.0 } else { 35.0 };
+        // The deck's most load-bearing card (LOO): ramp + impulse card-advantage + the go-off
+        // enabler. Tutor/keep it AHEAD of doublers (60) and engines — those are dead without a body,
+        // while Jeska ramps+digs regardless and explodes once a Krark body is out.
+        score += if jeska_boost() {
+            if bodies >= 1 { 90.0 } else { 65.0 }
+        } else {
+            if bodies >= 1 { 60.0 } else { 35.0 }
+        };
     } else if FAST_MANA.contains(&name) {
         score += 35.0;
     } else if RITUALS.contains(&name) {
