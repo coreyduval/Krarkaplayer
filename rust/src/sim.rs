@@ -1436,7 +1436,7 @@ impl<'a> SimGame<'a> {
             };
             cast.push(chosen.clone());
             if self.verbose {
-                println!("{}", loops::trace_cast_line("DEV ", cast.len() as i64, &chosen, &log, &nstate));
+                println!("{}", loops::trace_cast_line("DEV ", cast.len() as i64, &chosen, &log, &state, &nstate));
             }
             // Jeska mode 2 gas
             if !nstate.exiled_play.is_empty() {

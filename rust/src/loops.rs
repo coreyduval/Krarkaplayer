@@ -795,25 +795,70 @@ pub fn max_draws(s: &GameState, reg: &Registry, card: &str) -> f64 {
 
 /// One-line trace of a single cast (verbose diag only). `tag` distinguishes go-off ("FLIP") from
 /// develop ("DEV ") casts.
-pub fn trace_cast_line(tag: &str, step: i64, card: &str, log: &ResolveLog, s: &GameState) -> String {
-    let mut parts: Vec<String> = Vec::new();
-    if log.flips > 0 {
-        parts.push(format!("{} flips -> {} won, {} resolutions", log.flips, log.wins, log.resolutions));
+pub fn trace_cast_line(tag: &str, step: i64, card: &str, log: &ResolveLog, pre: &GameState, post: &GameState) -> String {
+    let cast = if log.flips > 0 {
+        format!("{} flips/{} won/{} resolutions", log.flips, log.wins, log.resolutions)
     } else {
-        parts.push("1 cast".to_string());
+        "1 resolution".to_string()
+    };
+    // Effect deltas (pre -> post): what the spell actually did.
+    let mut fx: Vec<String> = Vec::new();
+    // Cards that ENTERED hand this cast (draws + hand-tutors like Gamble), by name.
+    let mut pre_ct: std::collections::HashMap<&str, i64> = std::collections::HashMap::new();
+    for c in &pre.hand {
+        *pre_ct.entry(c.as_str()).or_insert(0) += 1;
     }
-    if log.storm_copies > 0 {
-        parts.push(format!("+{} storm", log.storm_copies));
-    }
-    let mut trig: Vec<String> = Vec::new();
-    for (k, v) in &log.triggers {
-        if *v != 0 {
-            trig.push(format!("{k}+{v}"));
+    let mut added: Vec<String> = Vec::new();
+    for c in &post.hand {
+        let e = pre_ct.entry(c.as_str()).or_insert(0);
+        if *e > 0 {
+            *e -= 1;
+        } else {
+            added.push(c.clone());
         }
     }
-    let opp: i64 = s.opponent_life.iter().filter(|l| **l > 0).sum();
-    let trig_s = if trig.is_empty() { String::new() } else { format!(" [{}]", trig.join(" ")) };
-    format!("    {tag} {step:>2}: {card:<24} {}{} | opp {opp} life", parts.join(", "), trig_s)
+    if !added.is_empty() {
+        let shown = if added.len() > 10 {
+            format!("{}, +{} more", added[..10].join(", "), added.len() - 10)
+        } else {
+            added.join(", ")
+        };
+        fx.push(format!("drew [{shown}]"));
+    }
+    // Library reduction beyond what entered hand = impulse-exiled / self-milled this cast.
+    let lib_drop = pre.library.len() as i64 - post.library.len() as i64;
+    let impulse = lib_drop - added.len() as i64;
+    if impulse > 0 {
+        fx.push(format!("impulsed/milled-self {impulse}"));
+    }
+    let live = |g: &GameState| g.opponent_life.iter().filter(|l| **l > 0).sum::<i64>();
+    let dmg = live(pre) - live(post);
+    if dmg > 0 {
+        fx.push(format!("dealt {dmg}"));
+    }
+    let milled = pre.opponent_library.iter().sum::<i64>() - post.opponent_library.iter().sum::<i64>();
+    if milled > 0 {
+        fx.push(format!("milled {milled}"));
+    }
+    let dtreas = post.mana.treasures - pre.mana.treasures;
+    if dtreas > 0 {
+        fx.push(format!("+{dtreas} treasure"));
+    }
+    if log.storm_copies > 0 {
+        fx.push(format!("+{} storm-copies", log.storm_copies));
+    }
+    for (k, v) in &log.triggers {
+        if *v != 0 {
+            fx.push(format!("{k} x{v}"));
+        }
+    }
+    let fx_s = if fx.is_empty() { "(no carryover)".to_string() } else { fx.join(", ") };
+    format!(
+        "    {tag}{step:>2}: {card:<22} {cast}\n           -> effect: {fx_s}  |  mana left: {} (storm {})  |  opp {} life",
+        post.mana.total(),
+        post.storm_count,
+        live(post)
+    )
 }
 
 pub fn rollout_from<R: Rng + ?Sized>(
@@ -876,7 +921,7 @@ pub fn rollout_from<R: Rng + ?Sized>(
             if let Some((ns, log)) = do_cast(&s, reg, card, source, rng, payoffs) {
                 if trace {
                     step += 1;
-                    println!("{}", trace_cast_line("FLIP", step, card, &log, &ns));
+                    println!("{}", trace_cast_line("FLIP", step, card, &log, &s, &ns));
                 }
                 nxt = Some(ns);
                 break;
@@ -1032,7 +1077,7 @@ pub fn prove_go_off<R: Rng + ?Sized>(
             match do_cast(&s, reg, card, &src, rng, payoffs) {
                 Some((ns, log)) => {
                     if trace {
-                        println!("{}", trace_cast_line("FLIP", iters + 1, card, &log, &ns));
+                        println!("{}", trace_cast_line("FLIP", iters + 1, card, &log, &s, &ns));
                     }
                     s = ns;
                 }
@@ -1056,7 +1101,7 @@ pub fn prove_go_off<R: Rng + ?Sized>(
     match do_cast(&s, reg, card, &src, rng, payoffs) {
         Some((ns, log)) => {
             if trace {
-                println!("{}", trace_cast_line("FLIP", 1, card, &log, &ns));
+                println!("{}", trace_cast_line("FLIP", 1, card, &log, &s, &ns));
             }
             let w = rollout_from(ns, reg, payoffs, need_life, rng, max_steps - 1, trace);
             if trace {
