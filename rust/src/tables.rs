@@ -38,6 +38,9 @@ pub fn mana_source(name: &str) -> Option<(SrcMode, ManaCost)> {
         "Lion's Eye Diamond" => (SrcMode::SacHand, mk(&[("*", 3)])),
         "Volcanic Island" => (SrcMode::Tap, mk(&[("*", 1)])),
         "Fiery Islet" => (SrcMode::Tap, mk(&[("*", 1)])),
+        // Steam Vents: shock dual; sim always pays the 2-life shock to enter untapped (charged once
+        // at fetch/ETB time, NOT per-tap), then taps for U/R (modeled '*').
+        "Steam Vents" => (SrcMode::Tap, mk(&[("*", 1)])),
         "Mana Confluence" => (SrcMode::Tap, mk(&[("*", 1)])),
         "Mana Vault" => (SrcMode::Tap, mk(&[("C", 3)])),
         "Mox Amber" => (SrcMode::Tap, mk(&[("*", 1)])),

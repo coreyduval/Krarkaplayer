@@ -74,11 +74,17 @@ fn lands_set() -> &'static [&'static str] {
     &[
         "Island", "Mountain", "Great Furnace", "Seat of the Synod", "Otawara, Soaring City",
         "Ancient Tomb", "Command Tower", "Shivan Reef", "Sulfur Falls", "Volcanic Island",
-        "Mana Confluence", "Fiery Islet",
+        "Mana Confluence", "Fiery Islet", "Steam Vents",
+        "Scalding Tarn", "Polluted Delta", "Bloodstained Mire",
     ]
 }
 fn is_land_name(n: &str) -> bool {
     lands_set().contains(&n)
+}
+/// Fetchlands: not mana sources themselves; playing one searches the library, prioritizing Steam
+/// Vents (then a color-aware basic), thinning the deck. All three can grab Steam Vents (Isl+Mtn).
+fn is_fetch(n: &str) -> bool {
+    matches!(n, "Scalding Tarn" | "Polluted Delta" | "Bloodstained Mire")
 }
 
 // #1 adaptive go-off search: cheap scan with SCAN_SIMS rollouts first; only escalate to the full
@@ -875,10 +881,75 @@ impl<'a> SimGame<'a> {
                 self.hand.remove(pos);
             }
         }
+        if is_fetch(card) {
+            self.graveyard.push(card.to_string()); // fetch sacrifices itself
+            self.resolve_fetch(pool);
+            self.played_land = true;
+            return;
+        }
         let new_idx = self.board.len();
         self.board.push((card.to_string(), None));
+        // Steam Vents: pay the 2-life shock to come in untapped (goldfish always wants untapped mana).
+        if card == "Steam Vents" {
+            self.our_life -= 2;
+        }
         self.tap_source(new_idx, pool);
         self.played_land = true;
+    }
+
+    /// Resolve a fetchland: grab Steam Vents first (then a color-aware basic), pull it from the
+    /// library (deck thinning — fewer dead future draws), pay life (1 fetch [+2 shock for Vents]),
+    /// and put it onto the battlefield UNTAPPED, tapping it for this turn's land-drop mana.
+    fn resolve_fetch(&mut self, pool: &mut ManaPool) {
+        // 1) Steam Vents has priority and is removed from the deck once fetched.
+        if let Some(pos) = self.library.iter().position(|c| c == "Steam Vents") {
+            self.library.remove(pos);
+            self.our_life -= 1 + 2; // fetch + shock
+            let idx = self.board.len();
+            self.board.push(("Steam Vents".to_string(), None));
+            self.tap_source(idx, pool);
+            return;
+        }
+        // 2) Otherwise fetch the basic covering the larger colored deficit (R vs U).
+        const COLORS: [&str; 2] = ["R", "U"];
+        const BASIC: [&str; 2] = ["Mountain", "Island"];
+        let mut wild = 0i64;
+        let mut have = [0i64; 2];
+        for (i, (n, _)) in self.board.iter().enumerate() {
+            if self.tapped.contains(&i) || self.sacrificed.contains(&i) {
+                continue;
+            }
+            if let Some((_, prod)) = mana_source(n) {
+                wild += prod.get("*").copied().unwrap_or(0);
+                for (k, c) in COLORS.iter().enumerate() {
+                    have[k] += prod.get(*c).copied().unwrap_or(0);
+                }
+            }
+        }
+        let mut need = [0i64; 2];
+        for c in self.hand.iter().chain(self.command_zone.iter()) {
+            if is_land_name(c) {
+                continue;
+            }
+            let cost = &self.reg.get(c).cost;
+            for (k, col) in COLORS.iter().enumerate() {
+                need[k] += cost.get(*col).copied().unwrap_or(0);
+            }
+        }
+        let deficit = [(need[0] - have[0] - wild).max(0), (need[1] - have[1] - wild).max(0)];
+        // Prefer the higher-deficit color; ties -> Mountain (deck is red-leaning).
+        let order = if deficit[1] > deficit[0] { [1usize, 0] } else { [0usize, 1] };
+        for &k in &order {
+            if let Some(pos) = self.library.iter().position(|c| c == BASIC[k]) {
+                self.library.remove(pos);
+                self.our_life -= 1; // fetch life
+                let idx = self.board.len();
+                self.board.push((BASIC[k].to_string(), None));
+                self.tap_source(idx, pool);
+                return;
+            }
+        }
+        // No fetchable land left in library: the fetch still sacrificed (land drop spent, no land).
     }
 
     /// Pick which land to play: the one covering our largest colored-mana deficit, where deficit =
@@ -921,6 +992,10 @@ impl<'a> SimGame<'a> {
         }
         // best colored deficit each candidate covers (a wildcard land covers either color)
         let score = |name: &str| -> i64 {
+            // A fetch can grab Steam Vents or either basic -> treat as a wildcard (covers either color).
+            if is_fetch(name) {
+                return deficit[0].max(deficit[1]);
+            }
             match mana_source(name) {
                 Some((_, prod)) => {
                     let mut best = if prod.get("*").copied().unwrap_or(0) > 0 {

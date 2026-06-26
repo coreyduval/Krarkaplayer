@@ -71,6 +71,10 @@ Relic of Legends|{3}|3|{T}: Add one mana of any color. Tap an untapped legendary
 Mana Confluence|Land|0|{T}, Pay 1 life: Add one mana of any color.
 Volcanic Island|Land|0|Land — Island Mountain. {T}: Add {U} or {R}.
 Fiery Islet|Land|0|Land. {T}, Pay 1 life: Add {U} or {R}. {1}, {T}, Sacrifice Fiery Islet: Draw a card.
+Steam Vents|Land|0|Land — Island Mountain. As Steam Vents enters, you may pay 2 life. If you don't, it enters tapped. {T}: Add {U} or {R}.
+Scalding Tarn|Land|0|{T}, Pay 1 life, Sacrifice Scalding Tarn: Search your library for an Island or Mountain card, put it onto the battlefield, then shuffle.
+Polluted Delta|Land|0|{T}, Pay 1 life, Sacrifice Polluted Delta: Search your library for an Island or Swamp card, put it onto the battlefield, then shuffle.
+Bloodstained Mire|Land|0|{T}, Pay 1 life, Sacrifice Bloodstained Mire: Search your library for a Swamp or Mountain card, put it onto the battlefield, then shuffle.
 Mystical Tutor|{U}|1|Instant. Search your library for an instant or sorcery card, reveal it, then shuffle and put that card on top.
 Overmaster|{R}|1|Sorcery. The next instant or sorcery spell you cast this turn can't be countered. Draw a card.
 Expedite|{R}|1|Instant. Target creature gains haste until end of turn. Draw a card.
