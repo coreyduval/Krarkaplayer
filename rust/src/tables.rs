@@ -37,6 +37,7 @@ pub fn mana_source(name: &str) -> Option<(SrcMode, ManaCost)> {
         "Simian Spirit Guide" => (SrcMode::Sac, mk(&[("R", 1)])),
         "Lion's Eye Diamond" => (SrcMode::SacHand, mk(&[("*", 3)])),
         "Volcanic Island" => (SrcMode::Tap, mk(&[("*", 1)])),
+        "Fiery Islet" => (SrcMode::Tap, mk(&[("*", 1)])),
         "Mana Confluence" => (SrcMode::Tap, mk(&[("*", 1)])),
         "Mana Vault" => (SrcMode::Tap, mk(&[("C", 3)])),
         "Mox Amber" => (SrcMode::Tap, mk(&[("*", 1)])),
@@ -60,6 +61,8 @@ pub fn life_per_tap(name: &str) -> i64 {
         "Shivan Reef" => 1,
         // Talisman of Creativity: 1 damage when tapped for {U}/{R} (sim treats output as '*').
         "Talisman of Creativity" => 1,
+        // Fiery Islet (horizon land): 1 life per colored tap, like a painland.
+        "Fiery Islet" => 1,
         _ => 0,
     }
 }

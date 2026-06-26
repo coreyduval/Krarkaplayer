@@ -60,7 +60,7 @@ fn build_deck(reg: &Registry, islands: u32, mountains: u32) -> Vec<String> {
 }
 
 fn dump_deck(reg: &Registry) {
-    let deck = build_deck(reg, 8, 11);
+    let deck = build_deck(reg, 8, 10);
     let mut counts: HashMap<&str, u32> = HashMap::new();
     for n in &deck {
         *counts.entry(n.as_str()).or_insert(0) += 1;
@@ -132,7 +132,7 @@ fn percentile(sorted: &[i64], pct: f64) -> i64 {
 }
 
 fn run_sweep(reg: &Registry, n_games: u64, trials: u64, max_turns: i64, win_threshold: f64, seed_base: u64, fizzle_fatal: bool, send_gate: f64, fast_mull: bool, rock_cutoff: i64, check_first: bool, cuts: Vec<String>, adds: Vec<String>) {
-    let mut deck = build_deck(reg, 8, 11);
+    let mut deck = build_deck(reg, 8, 10);
     // Leave-one-out / manabase swaps: drop one copy per `--cut`, append one copy per `--add`.
     // A land<->spell swap is `--cut Mountain --add Ponder` (deck stays 98). No-op if a cut isn't present.
     for c in &cuts {
@@ -308,7 +308,7 @@ fn run_sweep(reg: &Registry, n_games: u64, trials: u64, max_turns: i64, win_thre
 /// fast-mana that's genuinely WASTED (a pilot problem) from fast-mana that's merely REDUNDANT (the
 /// deck had enough mana anyway). Winning turns are excluded — there the mana feeds the kill.
 fn run_audit(reg: &Registry, n_games: u64, trials: u64, max_turns: i64, seed_base: u64, send_gate: f64, fast_mull: bool, cuts: Vec<String>, adds: Vec<String>) {
-    let mut deck = build_deck(reg, 8, 11);
+    let mut deck = build_deck(reg, 8, 10);
     for c in &cuts {
         if let Some(pos) = deck.iter().position(|x| x == c) {
             deck.remove(pos);
@@ -444,7 +444,7 @@ fn main() {
             // --no-combo: forbid the Dualcaster/Twinflame infinite, forcing a STORM win.
             let no_combo = args.iter().any(|a| a == "--no-combo");
             let combo_pieces = ["Dualcaster Mage", "Twinflame", "Heat Shimmer"];
-            let deck: Vec<String> = build_deck(&reg, 8, 11)
+            let deck: Vec<String> = build_deck(&reg, 8, 10)
                 .into_iter()
                 .filter(|c| !no_combo || !combo_pieces.contains(&c.as_str()))
                 .collect();
@@ -584,7 +584,7 @@ fn main() {
             // optimization deltas more stably than the parallel sweep.
             let games: u64 = arg_val(&args, "--games").and_then(|v| v.parse().ok()).unwrap_or(12);
             let trials: u64 = arg_val(&args, "--flip-trials").and_then(|v| v.parse().ok()).unwrap_or(5);
-            let deck = build_deck(&reg, 8, 11);
+            let deck = build_deck(&reg, 8, 10);
             let t0 = std::time::Instant::now();
             let mut wins = 0u64;
             let mut total = 0u64;
@@ -654,7 +654,7 @@ fn main() {
             let seed: u64 = arg_val(&args, "--seed").and_then(|v| v.parse().ok()).unwrap_or(0);
             let luck: u64 = arg_val(&args, "--luck").and_then(|v| v.parse().ok()).unwrap_or(0);
             let max_turns: i64 = arg_val(&args, "--max-turns").and_then(|v| v.parse().ok()).unwrap_or(20);
-            let deck = build_deck(&reg, 8, 11);
+            let deck = build_deck(&reg, 8, 10);
             let fast_mull = !args.iter().any(|a| a == "--no-fast-mull");
             let mut game = sim::SimGame::new(&reg, &deck, seed, 0.95, fast_mull);
             game.set_dev_seed(seed.wrapping_mul(1_000_003).wrapping_add(luck));

@@ -74,7 +74,7 @@ fn lands_set() -> &'static [&'static str] {
     &[
         "Island", "Mountain", "Great Furnace", "Seat of the Synod", "Otawara, Soaring City",
         "Ancient Tomb", "Command Tower", "Shivan Reef", "Sulfur Falls", "Volcanic Island",
-        "Mana Confluence",
+        "Mana Confluence", "Fiery Islet",
     ]
 }
 fn is_land_name(n: &str) -> bool {
@@ -1319,7 +1319,8 @@ impl<'a> SimGame<'a> {
     fn develop(&mut self, pool: &mut ManaPool) -> Vec<String> {
         let payoffs = DEV_PAYOFFS;
         let mut state = tap_out(&self.build_state(pool));
-        let orig_bf = state.battlefield.len();
+        let mut orig_bf = state.battlefield.len();
+        let mut cracked_islets = 0usize; // Fiery Islets sac'd for a card during develop (flood relief)
         let need_life: i64 = state.opponent_life.iter().copied().filter(|l| *l > 0).sum();
         let mut scores: HashMap<String, f64> = HashMap::new();
 
@@ -1350,7 +1351,11 @@ impl<'a> SimGame<'a> {
             if state.hand.iter().any(|nm| is_engine_permanent(self.reg, nm))
                 || loops::breach_line_live(&state, self.reg)
             {
-                if !deploy_engine_perms(&mut state, self.reg).is_empty() {
+                let deployed = deploy_engine_perms(&mut state, self.reg);
+                if !deployed.is_empty() {
+                    if self.verbose {
+                        println!("    DEPLOY  : {} (engine permanent)", deployed.join(", "));
+                    }
                     recompute(&state, &mut scores, self.reg);
                 }
             }
@@ -1400,6 +1405,47 @@ impl<'a> SimGame<'a> {
                 })
                 .collect();
             if cands.is_empty() {
+                // Flood relief: stuck with no castable spell (the lands-only brick). If a Fiery Islet
+                // is in play and we have {1}, crack it ({1}, sac: draw a card) to dig for ignition —
+                // its own tap mana covers the activation (net ~0 mana, -1 land, +1 card). Gated on the
+                // deck-out floor. The drawn card may be a castable spell, so recompute and continue.
+                // Smarter guard: only crack when there's NO win path to fund — no payoff in hand, no
+                // Dualcaster+Shimmer combo, and not already closing. Otherwise the go-off (try_win
+                // after develop) wants this mana, and saccing a source would fizzle the kill.
+                let payoff_in_hand = state
+                    .hand
+                    .iter()
+                    .any(|c| matches!(c.as_str(), "Grapeshot" | "Brain Freeze" | "Thassa's Oracle"));
+                let dc = state.hand.iter().any(|c| c == "Dualcaster Mage")
+                    || state.has_permanent("Dualcaster Mage");
+                let shim = state.hand.iter().any(|c| matches!(c.as_str(), "Twinflame" | "Heat Shimmer"));
+                let win_path = closing || payoff_in_hand || (dc && shim);
+                let can_crack = !win_path
+                    && (state.library.len() as i64) > floor
+                    && state.mana.total() >= 1
+                    && state.battlefield.iter().any(|p| p.name == "Fiery Islet");
+                if can_crack {
+                    let i = state.battlefield.iter().position(|p| p.name == "Fiery Islet").unwrap();
+                    state.battlefield.remove(i);
+                    // The Islet is an ORIGINAL battlefield perm (played as a land before develop), so
+                    // removing it shifts the [orig_bf..] deploy-commit slice — decrement orig_bf to keep
+                    // it aligned, else a real engine permanent deployed this turn gets dropped on commit.
+                    if i < orig_bf {
+                        orig_bf -= 1;
+                    }
+                    cracked_islets += 1;
+                    let one: HashMap<String, i64> = HashMap::from([("generic".to_string(), 1)]);
+                    state.mana.pay(&one);
+                    if let Some(c) = state.library.first().cloned() {
+                        state.library.remove(0);
+                        state.hand.push(c.clone());
+                        if self.verbose {
+                            println!("    CRACK   : Fiery Islet sacrificed -> draw [{c}] (flood relief)");
+                        }
+                    }
+                    recompute(&state, &mut scores, self.reg);
+                    continue;
+                }
                 break;
             }
             let mut cands = cands;
@@ -1473,6 +1519,20 @@ impl<'a> SimGame<'a> {
         }
         for p in &state.battlefield[orig_bf..] {
             self.board.push((p.name.clone(), p.copy_of.clone()));
+        }
+        // Commit any Fiery Islet sacrificed for a card during develop: remove it from the real board
+        // and remap the tapped/sacrificed index sets so they don't point at the wrong permanent.
+        for _ in 0..cracked_islets {
+            if let Some(pos) = self.board.iter().position(|(n, _)| n == "Fiery Islet") {
+                self.board.remove(pos);
+                let remap = |set: &HashSet<usize>| -> HashSet<usize> {
+                    set.iter()
+                        .filter_map(|&x| if x == pos { None } else if x > pos { Some(x - 1) } else { Some(x) })
+                        .collect()
+                };
+                self.tapped = remap(&self.tapped);
+                self.sacrificed = remap(&self.sacrificed);
+            }
         }
         self.hand = state.hand.clone();
         self.library = state.library.clone();

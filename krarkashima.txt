@@ -70,6 +70,7 @@ Mox Amber|{0}|0|Legendary Artifact. {T}: Add one mana of any color among legenda
 Relic of Legends|{3}|3|{T}: Add one mana of any color. Tap an untapped legendary creature you control: Add one mana of any color.
 Mana Confluence|Land|0|{T}, Pay 1 life: Add one mana of any color.
 Volcanic Island|Land|0|Land — Island Mountain. {T}: Add {U} or {R}.
+Fiery Islet|Land|0|Land. {T}, Pay 1 life: Add {U} or {R}. {1}, {T}, Sacrifice Fiery Islet: Draw a card.
 Mystical Tutor|{U}|1|Instant. Search your library for an instant or sorcery card, reveal it, then shuffle and put that card on top.
 Overmaster|{R}|1|Sorcery. The next instant or sorcery spell you cast this turn can't be countered. Draw a card.
 Expedite|{R}|1|Instant. Target creature gains haste until end of turn. Draw a card.
