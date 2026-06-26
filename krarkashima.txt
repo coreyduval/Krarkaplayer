@@ -2,7 +2,6 @@ name|mana_cost|mana_value|rules_text
 Krark, the Thumbless|{1}{R}|2|Legendary Creature — Goblin Wizard. Partner. Whenever you cast an instant or sorcery spell, flip a coin. If you lose the flip, return that spell to its owner's hand. If you win the flip, copy that spell. You may choose new targets for the copy.
 Sakashima of a Thousand Faces|{3}{U}|4|Legendary Creature — Human Rogue. Partner. You may have Sakashima of a Thousand Faces enter the battlefield as a copy of any creature you control on the battlefield, except it has Sakashima of a Thousand Faces's other abilities. The "legend rule" doesn't apply to permanents you control.
 Archmage Emeritus|{2}{U}{U}|4|Magecraft — Whenever you cast or copy an instant or sorcery spell, draw a card.
-Baral, Chief of Compliance|{1}{U}|2|Instant and sorcery spells you cast cost {1} less to cast. Whenever a spell or ability you control counters a spell, you may draw a card. If you do, discard a card.
 Birgi, God of Storytelling|{2}{R}|3|Whenever you cast a spell, add {R}. Until end of turn, you don't lose this mana as steps and phases end. (Back: Harnfel, Horn of Bounty)
 Dualcaster Mage|{1}{R}{R}|3|Flash. When Dualcaster Mage enters the battlefield, copy target instant or sorcery spell. You may choose new targets for the copy.
 Gale, Waterdeep Prodigy|{2}{U}|3|Legendary Creature — Human Wizard. Whenever you cast an instant spell from your hand, you may cast target sorcery card from your graveyard. If you do, exile it when it resolves. Whenever you cast a sorcery spell from your hand, you may cast target instant card from your graveyard.
@@ -10,8 +9,6 @@ Opt|{U}|1|Scry 1. Draw a card.
 Harmonic Prodigy|{1}{R}|2|Prowess. If an ability of a Shaman or Wizard you control triggers, that ability triggers an additional time.
 Imperial Recruiter|{2}{R}|3|When Imperial Recruiter enters the battlefield, search your library for a creature card with power 2 or less, reveal it, put it into your hand, then shuffle.
 Consider|{U}|1|Look at the top card of your library. You may put that card into your graveyard. Draw a card.
-Okaun, Eye of Chaos|{3}{R}{R}|5|Partner with Zndrsplt, Eye of Wisdom. At the beginning of combat on your turn, flip a coin until you lose a flip. Whenever you win a coin flip, double Okaun's power and toughness until end of turn.
-Ragavan, Nimble Pilferer|{R}|1|Legendary Creature — Monkey Pirate. Whenever Ragavan deals combat damage to a player, create a Treasure token and exile the top card of that player's library. You may cast that card this turn. Dash {1}{R}.
 Snapcaster Mage|{1}{U}|2|Flash. When Snapcaster Mage enters the battlefield, target instant or sorcery card in your graveyard gains flashback until end of turn. The flashback cost is equal to its mana cost.
 Spellseeker|{2}{U}|3|When Spellseeker enters the battlefield, search your library for an instant or sorcery card with mana value 2 or less, reveal it, put it into your hand, then shuffle.
 Storm-Kiln Artist|{3}{R}|4|Magecraft — Whenever you cast or copy an instant or sorcery spell, create a Treasure token. Storm-Kiln Artist gets +1/+0 for each artifact you control.
@@ -19,12 +16,8 @@ Tavern Scoundrel|{1}{R}|2|Whenever you flip a coin, if you win the flip, create 
 Urabrask|{2}{R}{R}|4|Legendary Creature — Praetor. Whenever you cast an instant or sorcery spell, Urabrask deals 1 damage to target opponent and you add {R}. {R}: Exile Urabrask, then return it transformed under its owner's control. Activate only as a sorcery and only if you've cast three or more instant and/or sorcery spells this turn.
 Veyran, Voice of Duality|{1}{U}{R}|3|Magecraft — Whenever you cast or copy an instant or sorcery spell, Veyran gets +1/+1 until end of turn. If casting or copying an instant or sorcery spell causes a triggered ability of a permanent you control to trigger, that ability triggers an additional time.
 Vivi Ornitier|{1}{U}{R}|3|Legendary Creature — Wizard. {0}: Add X mana in any combination of {U} and/or {R}, where X is Vivi Ornitier's power. Activate only during your turn and only once each turn. Whenever you cast a noncreature spell, put a +1/+1 counter on Vivi Ornitier and it deals 1 damage to each opponent.
-Zndrsplt, Eye of Wisdom|{4}{U}|5|Partner with Okaun, Eye of Chaos. At the beginning of combat on your turn, flip a coin until you lose a flip. Whenever you win a coin flip, draw a card.
 Glasspool Mimic|{2}{U}|3|You may have Glasspool Mimic enter the battlefield as a copy of any creature you control, except it's a Rogue in addition to its other types. (Back: Glasspool Shore)
 Phantasmal Image|{1}{U}|2|You may have Phantasmal Image enter the battlefield as a copy of any creature on the battlefield, except it's an Illusion in addition to its other types and it has "When this creature becomes the target of a spell or ability, sacrifice it."
-Quasiduplicate|{1}{U}{U}|3|Create a token that's a copy of target creature you control. Jump-start (You may cast this card from your graveyard by discarding a card in addition to paying its other costs. Then exile this card).
-Subtlety|{2}{U}{U}|4|Flash. Flying. When Subtlety enters the battlefield, choose target creature or planeswalker spell. Its owner puts it on the top or bottom of their library. Evoke—Exile a blue card from your hand.
-Thassa's Oracle|{U}{U}|2|When Thassa's Oracle enters the battlefield, look at the top X cards of your library, where X is your devotion to blue. If X is greater than or equal to the number of cards in your library, you win the game. Otherwise, put those cards back in any order.
 Brainstorm|{U}|1|Draw three cards, then put two cards from your hand on top of your library in any order.
 Gamble|{R}|1|Search your library for a card, put it into your hand, shuffle, then discard a card at random.
 Jeska's Will|{2}{R}|3|Choose one. If you control a commander as you cast this spell, you may choose both — Add {R} for each card in target opponent's hand; or Exile the top three cards of your library. You may play them this turn.
@@ -45,9 +38,7 @@ Flusterstorm|{U}|1|Counter target instant or sorcery spell unless its controller
 Force of Will|{3}{U}{U}|5|You may pay 1 life and exile a blue card from your hand rather than pay this spell's mana cost. Counter target spell.
 Pact of Negation|{0}|0|Counter target spell. At the beginning of your next upkeep, pay {3}{U}{U}. If you don't, you lose the game.
 Serum Visions|{U}|1|Draw a card, then scry 2.
-Preordain|{U}|1|Scry 2, then draw a card.
 Underworld Breach|{1}{R}|2|Each nonland card in your graveyard has escape. The escape cost is equal to its mana cost plus exiling three other cards from your graveyard. At the beginning of the end step, sacrifice Underworld Breach.
-Defense Grid|{2}|2|Each spell cast on a turn other than its controller's turn costs {3} more to cast.
 Mystic Remora|{U}|1|Cumulative upkeep {1}. Whenever an opponent casts a noncreature spell, you may draw a card unless that player pays {4}.
 Rhystic Study|{2}{U}|3|Whenever an opponent casts a spell, you may draw a card unless that player pays {1}.
 Valley Floodcaller|{1}{U}|2|Flash. Vigilance. You may cast noncreature spells as though they had flash. Whenever you cast a noncreature spell, untap each creature you control that's an Otter, Bird, Frog, or Rat. They get +1/+1 until end of turn.
@@ -59,7 +50,6 @@ Lotus Petal|{0}|0|Sacrifice Lotus Petal: Add one mana of any color.
 Mox Diamond|{0}|0|If Mox Diamond would enter the battlefield, you may discard a land card instead. If you do, put Mox Diamond onto the battlefield. If you don't, put it into its owner's graveyard. {T}: Add one mana of any color.
 Sol Ring|{1}|1|{T}: Add {C}{C}.
 Springleaf Drum|{1}|1|{T}, Tap an untapped creature you control: Add one mana of any color.
-The One Ring|{4}|4|Legendary Artifact. Indestructible. When The One Ring enters the battlefield, if you cast it, you gain protection from everything until your next turn. At the beginning of your upkeep, you lose 1 life for each burden counter on it. {T}: Put a burden counter on it, then draw a card for each burden counter on it.
 Ancient Tomb|Land|0|{T}: Add {C}{C}. Ancient Tomb deals 2 damage to you.
 Command Tower|Land|0|{T}: Add one mana of any color in your commander's color identity.
 Great Furnace|Land|0|Artifact Land. {T}: Add {R}.
@@ -72,7 +62,6 @@ Mountain|Basic Land|0|Basic Land — Mountain
 An Offer You Can't Refuse|{U}|1|Counter target noncreature spell. Its controller creates two Treasure tokens.
 Borne Upon a Wind|{1}{U}|2|You may cast spells this turn as though they had flash. Draw a card.
 Gitaxian Probe|{U/P}|1|Look at target player's hand. Draw a card. ({U/P} can be paid with either {U} or 2 life.)
-Heat Shimmer|{2}{R}|3|Create a token that's a copy of target creature, except it has haste and "At the beginning of the end step, exile this token."
 Mogg Salvage|{2}{R}|3|If an opponent controls an Island and you control a Mountain, you may cast this spell without paying its mana cost. Destroy target artifact.
 Peek|{U}|1|Look at target player's hand. Draw a card.
 Rite of Flame|{R}|1|Add {R}{R}, then add {R} for each card named Rite of Flame in each graveyard.
@@ -81,3 +70,19 @@ Mox Amber|{0}|0|Legendary Artifact. {T}: Add one mana of any color among legenda
 Relic of Legends|{3}|3|{T}: Add one mana of any color. Tap an untapped legendary creature you control: Add one mana of any color.
 Mana Confluence|Land|0|{T}, Pay 1 life: Add one mana of any color.
 Volcanic Island|Land|0|Land — Island Mountain. {T}: Add {U} or {R}.
+Mystical Tutor|{U}|1|Instant. Search your library for an instant or sorcery card, reveal it, then shuffle and put that card on top.
+Overmaster|{R}|1|Sorcery. The next instant or sorcery spell you cast this turn can't be countered. Draw a card.
+Expedite|{R}|1|Instant. Target creature gains haste until end of turn. Draw a card.
+Might of the Meek|{R}|1|Instant. Target creature gains trample until end of turn. Draw a card.
+Preordain|{U}|1|Sorcery. Scry 2, then draw a card.
+Crimson Wisps|{R}|1|Instant. Target creature gains haste until end of turn. Draw a card.
+Renegade Tactics|{R}|1|Sorcery. Target creature can't be blocked this turn. Draw a card.
+Accelerate|{R}|1|Instant. Target creature gets +1/+0 and gains haste until end of turn. Draw a card.
+Brightstone Ritual|{R}|1|Instant. Add {R} for each Goblin on the battlefield.
+Simian Spirit Guide|{0}|0|Creature. Exile this card from your hand: Add {R}. (Modeled as a one-shot red mana source.)
+Phyrexian Metamorph|{3}{U/P}|4|Artifact Creature — Phyrexian Shapeshifter. You may have this enter as a copy of any artifact or creature on the battlefield, except it's an artifact. ({U/P} = {U} or 2 life.)
+Step Through|{2}|2|Sorcery. Wizardcycling {2} ({2}, Discard: search your library for a Wizard card, put it into your hand, shuffle.) (Modeled as a {2} Wizard tutor.)
+Talisman of Creativity|{2}|2|Artifact. {T}: Add {C}. {T}: Add {U} or {R}, deal 1 damage to you.
+Mockingbird|{1}{U}|2|Creature — Bird Bard. Enter as a copy of any creature with mana value <= mana spent (X=1 copies Krark), except it's a Bird with flying.
+Roaming Throne|{4}|4|Artifact Creature — Golem. Ward {2}. As this enters, choose a creature type (Wizard). Triggered abilities of your other creatures of the chosen type trigger an additional time.
+Thassa's Oracle|{U}{U}|2|[NOT IN DECK — kept for win-predicate CardDef] When Thassa's Oracle enters the battlefield, look at the top X cards of your library, where X is your devotion to blue. If X is greater than or equal to the number of cards in your library, you win the game. Otherwise, put those cards back in any order.

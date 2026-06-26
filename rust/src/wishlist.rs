@@ -7,8 +7,9 @@ use crate::game_state::GameState;
 const PAYOFFS: &[&str] = &["Thassa's Oracle", "Grapeshot", "Brain Freeze"];
 const BODIES: &[&str] = &[
     "Krark, the Thumbless", "Sakashima of a Thousand Faces", "Glasspool Mimic", "Phantasmal Image",
+    "Phyrexian Metamorph", "Mockingbird",
 ];
-const DOUBLERS: &[&str] = &["Veyran, Voice of Duality", "Harmonic Prodigy"];
+const DOUBLERS: &[&str] = &["Veyran, Voice of Duality", "Harmonic Prodigy", "Roaming Throne"];
 const DRAW_ENGINES: &[&str] = &["Archmage Emeritus"];
 const MANA_ENGINES: &[&str] = &["Storm-Kiln Artist", "Birgi, God of Storytelling"];
 const FAST_MANA: &[&str] = &[

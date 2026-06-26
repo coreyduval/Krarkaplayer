@@ -12,6 +12,26 @@ use std::collections::HashSet;
 
 pub const DEV_PAYOFFS: &[&str] = &["Grapeshot", "Thassa's Oracle", "Brain Freeze"];
 
+// Aggressive cantrips: develop_score stops charging the mana cost of CANTRIP_LOOP cards (draw /
+// card-selection). Rationale — the deck is mana-saturated (~17% of dev-turn mana floats away unused),
+// so the opportunity cost of a cantrip's mana is ~0; a "mana-neutral" dig (pay 1, draw 1) is actually
+// positive selection progress and should fire. Temporary-mana rituals are untouched — they hit the
+// pure_mana branch and stay binned with the combo pieces. Default ON (A/B at 1200x8: TTK 7.21->7.12,
+// P90 11->10, win% flat 99.7->99.6); opt out with --no-aggro-cantrips.
+pub static AGGRO_CANTRIPS: std::sync::OnceLock<bool> = std::sync::OnceLock::new();
+fn aggro_cantrips() -> bool {
+    *AGGRO_CANTRIPS.get().unwrap_or(&true)
+}
+
+// Pre-Krark digging: credit a cantrip's selection value even with NO Krark body in play (no copies),
+// so the pilot digs toward Krark/combo with spare mana on early turns. Without this the dig branch is
+// gated on flips_per_cast>=1, so a bare cantrip scores ~mana-neutral and never fires pre-Krark. Layers
+// on top of aggro_cantrips (which zeroes the cost so the dig reads positive). Default off (A/B gated).
+pub static PRE_KRARK_DIG: std::sync::OnceLock<bool> = std::sync::OnceLock::new();
+fn pre_krark_dig() -> bool {
+    *PRE_KRARK_DIG.get().unwrap_or(&false)
+}
+
 // per-resolution red mana the spell's own effect makes.
 fn spell_red_per_resolution(card: &str) -> i64 {
     match card {
@@ -33,8 +53,14 @@ fn library_reduction(card: &str) -> i64 {
     match card {
         "Brain Freeze" => 3,
         "Frantic Search" => 2,
+        // Heroes' Hangout impulse-digs the top two (plays the better one).
+        "Heroes' Hangout" => 2,
         "Brainstorm" | "Ponder" | "Gamble" | "Gitaxian Probe" | "Peek" | "Borne Upon a Wind"
-        | "Opt" | "Consider" | "Serum Visions" | "Preordain" => 1,
+        | "Opt" | "Consider" | "Serum Visions" | "Preordain"
+        // Red {R}: draw-1 cantrips — same dig value as Opt/Ponder; were missing so the planner
+        // scored them negative and refused to fire them for dig.
+        | "Overmaster" | "Expedite" | "Might of the Meek"
+        | "Crimson Wisps" | "Renegade Tactics" | "Accelerate" => 1,
         _ => 0,
     }
 }
@@ -55,6 +81,8 @@ const MANA_POSITIVE_LOOP: &[&str] = &[
 const CANTRIP_LOOP: &[&str] = &[
     "Brainstorm", "Ponder", "Gitaxian Probe", "Peek", "Frantic Search", "Snap",
     "Borne Upon a Wind", "Opt", "Consider", "Serum Visions", "Preordain",
+    "Overmaster", "Expedite", "Might of the Meek", "Heroes' Hangout",
+    "Crimson Wisps", "Renegade Tactics", "Accelerate",
     // Gamble: 1-mana red tutor that draws+discards a card — loops for dig value off a per-cast
     // engine like the other cantrips. Its random discard is bounded: once Thassa's Oracle is
     // found, finish_progress switches to the mill/win branch instead of looping Gamble further.
@@ -94,6 +122,24 @@ pub fn gy_fuel(s: &GameState, exclude: Option<&str>) -> i64 {
         }
     }
     n
+}
+
+/// Underworld Breach is an enchantment with no triggers, so it is NOT an engine permanent and never
+/// gets deployed on its own. It's a combo finisher: once on the battlefield, `can_escape` lets you
+/// re-cast a storm payoff (Grapeshot / Brain Freeze) from the graveyard by exiling 3 other gy cards
+/// each. Breach sacrifices itself at end of turn, so it's only worth casting when the escape line can
+/// go off THIS turn — a payoff already sits in the graveyard, the graveyard is deep enough to pay the
+/// exile costs, and a Krark body is out to storm the escaped payoff to lethal. Gating on those keeps
+/// the pilot from wasting it speculatively; the kill search then verifies the actual lethal line.
+pub fn breach_line_live(s: &GameState, reg: &Registry) -> bool {
+    if !s.hand.iter().any(|c| c == "Underworld Breach") {
+        return false;
+    }
+    let payoff_in_gy = s
+        .graveyard
+        .iter()
+        .any(|c| matches!(c.as_str(), "Grapeshot" | "Brain Freeze"));
+    payoff_in_gy && s.graveyard.len() >= 7 && s.krark_bodies(reg) >= 1
 }
 
 pub fn can_escape(s: &GameState, reg: &Registry, card: &str) -> bool {
@@ -139,6 +185,7 @@ pub fn crack_led(s: &mut GameState) -> bool {
     s.mana.add("*", 3);
     true
 }
+
 
 /// Exile `k` cards from the graveyard as Breach's escape cost. Never the `protect` set (cards
 /// needed for THIS go-off); among the rest, exile the LEAST valuable first — same priority as the
@@ -513,7 +560,17 @@ pub fn develop_candidates(s: &GameState, reg: &Registry) -> Vec<(String, String)
         .any(|p| p.functions_as(reg).types.contains(&CardType::Creature));
     let ok = |c: &str| -> bool {
         let cd = reg.get(c);
-        if !(cd.is_instant_or_sorcery() && !PAYOFF_ONLY.contains(&c)) {
+        if !cd.is_instant_or_sorcery() {
+            return false;
+        }
+        // PAYOFF_ONLY (Grapeshot / Oracle) are normally one-shot payoffs, not develop/rollout casts.
+        // EXCEPTION — Grapeshot LOOPS with Krark's Thumb + a body: you steer one flip to a LOSS to
+        // return it to hand, so each recast deals (resolutions + storm) damage and comes back. Then
+        // it's a loopable burn engine, and the rollout can ride the loop to lethal at a far lower
+        // per-cast storm than winning_payoff's single-cast check requires. The Thumb gate ensures the
+        // return is steerable (it can't be stranded in the graveyard).
+        let grapeshot_loops = c == "Grapeshot" && s.has_krarks_thumb() && s.krark_bodies(reg) >= 1;
+        if PAYOFF_ONLY.contains(&c) && !grapeshot_loops {
             return false;
         }
         if MAGECRAFT_FUEL.contains(&c) {
@@ -591,7 +648,7 @@ fn finish_progress(
         || s.has_permanent("Thassa's Oracle")
         || can_escape(s, reg, "Thassa's Oracle");
     if !oracle {
-        if s.flips_per_cast(reg) >= 1 && CANTRIP_LOOP.contains(&card) {
+        if CANTRIP_LOOP.contains(&card) && (s.flips_per_cast(reg) >= 1 || pre_krark_dig()) {
             return library_reduction(card) as f64 * e_effect_resolutions * DIG_WEIGHT;
         }
         return 0.0;
@@ -644,6 +701,39 @@ pub fn develop_score(s: &GameState, reg: &Registry, card: &str) -> f64 {
         let discards = a.e_effect_resolutions.max(1.0);
         return (best - avg_loss * discards) / 20.0 + a.e_draws;
     }
+    if card == "Mystical Tutor" {
+        // Puts the best I/S on TOP of the library (not in hand). Value = how much it improves the
+        // NEXT draw over whatever is currently on top, plus the engine draws from the copies. Once
+        // the best card is already on top, best - top = 0, so re-casting scores ~0 and the pilot
+        // won't loop it pointlessly (the spell shuffles, so a looped tutor just re-seats the same
+        // card). Without this it scored negative and never fired a 92%-meta-staple tutor.
+        let best = s
+            .library
+            .iter()
+            .filter(|c| reg.get(c).is_instant_or_sorcery())
+            .map(|c| wishlist::card_value(s, reg, c, true))
+            .fold(0.0f64, f64::max);
+        let top = s
+            .library
+            .first()
+            .map(|c| wishlist::card_value(s, reg, c, true))
+            .unwrap_or(0.0);
+        return (best - top).max(0.0) / 20.0 + a.e_draws;
+    }
+    if card == "Step Through" {
+        // Wizardcycle: fetch the best library Wizard (single tutor, no Krark trigger).
+        const WIZARDS: &[&str] = &[
+            "Dualcaster Mage", "Veyran, Voice of Duality", "Vivi Ornitier", "Archmage Emeritus",
+            "Snapcaster Mage", "Gale, Waterdeep Prodigy", "Spellseeker",
+        ];
+        let best = s
+            .library
+            .iter()
+            .filter(|c| WIZARDS.contains(&c.as_str()))
+            .map(|c| wishlist::card_value(s, reg, c, true))
+            .fold(0.0f64, f64::max);
+        return best / 20.0;
+    }
     let mut mana: f64 = a.e_mana.values().sum::<f64>() + a.e_treasures;
     let mut own = (spell_red_per_resolution(card)
         + spell_generic_per_resolution(card)
@@ -651,8 +741,18 @@ pub fn develop_score(s: &GameState, reg: &Registry, card: &str) -> f64 {
     if card == "Jeska's Will" {
         own += s.opponent_hand.iter().copied().max().unwrap_or(0) as f64;
     }
+    // Brightstone Ritual makes {R} per Goblin = per Krark body — a scaling ritual that's mana-positive
+    // with >=2 bodies (and snowballs with more). Without this it reads as a 0-mana card and gets pitched.
+    if card == "Brightstone Ritual" {
+        own += s.krark_bodies(reg) as f64;
+    }
     mana += own * a.e_effect_resolutions;
-    let cost: i64 = s.cast_cost(reg, card).iter().filter(|(k, _)| k.as_str() != "X").map(|(_, v)| *v).sum();
+    let mut cost: i64 = s.cast_cost(reg, card).iter().filter(|(k, _)| k.as_str() != "X").map(|(_, v)| *v).sum();
+    // Mana-saturated deck: a cantrip's mana would otherwise be wasted, so don't let its cost cancel
+    // its card-selection value — charge it 0 and let the dig fire. Rituals never reach here (pure_mana).
+    if aggro_cantrips() && CANTRIP_LOOP.contains(&card) {
+        cost = 0;
+    }
     let finish = finish_progress(s, reg, card, a.e_damage, a.e_effect_resolutions, a.e_draws);
     let treasures_made = a.e_treasures
         + if TREASURE_SPELLS.contains(&card) { a.e_effect_resolutions } else { 0.0 };
@@ -750,6 +850,27 @@ pub fn rollout_from<R: Rng + ?Sized>(
             let sb = *score_cache.get(&b.0).unwrap();
             sb.partial_cmp(&sa).unwrap_or(std::cmp::Ordering::Equal)
         });
+        if trace {
+            // Instrumentation: show the greedy's ranked options each step — score, and ',X' if it
+            // can't currently pay for it. Reveals whether the policy is picking the right card and
+            // whether mana is gating the better plays.
+            let ranked: Vec<String> = cands
+                .iter()
+                .take(8)
+                .map(|(c, _)| {
+                    let sc = *score_cache.get(c).unwrap_or(&0.0);
+                    let pay = if cast_source(&s, reg, c).is_some() { "" } else { ",X" };
+                    format!("{c}({sc:+.2}{pay})")
+                })
+                .collect();
+            println!(
+                "    [step{step}] mana={} storm={} opp={} | options: {}",
+                s.mana.total(),
+                s.storm_count,
+                s.opponent_life.iter().sum::<i64>(),
+                ranked.join(", ")
+            );
+        }
         let mut nxt: Option<GameState> = None;
         for (card, source) in &cands {
             if let Some((ns, log)) = do_cast(&s, reg, card, source, rng, payoffs) {
@@ -972,6 +1093,9 @@ pub fn analyze_runaway(state: &GameState, reg: &Registry, card_name: &str) -> Ru
     let own_gen = spell_generic_per_resolution(card_name) + untap_mana(state, reg, card_name);
     if card_name == "Jeska's Will" {
         own_red = state.opponent_hand.iter().copied().max().unwrap_or(0);
+    }
+    if card_name == "Brightstone Ritual" {
+        own_red = state.krark_bodies(reg); // {R} per Goblin = per Krark body
     }
     let own_mana = (own_red + own_gen) as f64 * a.e_effect_resolutions;
     let cast_cost: i64 = state.cast_cost(reg, card_name).iter().filter(|(k, _)| k.as_str() != "X").map(|(_, v)| *v).sum();

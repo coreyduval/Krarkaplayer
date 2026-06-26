@@ -200,25 +200,29 @@ const CREATURES: &[&str] = &[
     "Spellseeker", "Storm-Kiln Artist", "Tavern Scoundrel", "Urabrask",
     "Veyran, Voice of Duality", "Vivi Ornitier", "Zndrsplt, Eye of Wisdom",
     "Glasspool Mimic", "Phantasmal Image", "Subtlety", "Thassa's Oracle",
-    "Valley Floodcaller",
+    "Valley Floodcaller", "Phyrexian Metamorph", "Mockingbird", "Roaming Throne",
 ];
 const SORCERIES: &[&str] = &[
     "Quasiduplicate", "Gamble", "Jeska's Will", "Ponder", "Grapeshot",
     "Twinflame", "Strike It Rich", "Gitaxian Probe", "Rite of Flame", "Heat Shimmer",
-    "Serum Visions", "Preordain",
+    "Serum Visions", "Preordain", "Overmaster", "Heroes' Hangout", "Step Through",
+    "Renegade Tactics",
 ];
 const INSTANTS: &[&str] = &[
     "Brainstorm", "Cyclonic Rift", "Brain Freeze", "Frantic Search", "Snap",
     "Gut Shot", "Desperate Ritual", "Pyretic Ritual", "Deflecting Swat",
     "Fierce Guardianship", "Flusterstorm", "Force of Will", "Pact of Negation",
     "An Offer You Can't Refuse", "Borne Upon a Wind", "Mogg Salvage", "Peek",
-    "Opt", "Consider",
+    "Opt", "Consider", "Expedite", "Might of the Meek", "Brightstone Ritual",
+    "Crimson Wisps", "Accelerate",
+    "Mystical Tutor",
 ];
 const ENCHANTMENTS: &[&str] = &["Underworld Breach", "Mystic Remora", "Rhystic Study"];
 const ARTIFACTS: &[&str] = &[
     "Defense Grid", "Arcane Signet", "Chrome Mox", "Krark's Thumb",
     "Lion's Eye Diamond", "Lotus Petal", "Mox Diamond", "Sol Ring",
     "Springleaf Drum", "The One Ring", "Mana Vault", "Mox Amber", "Relic of Legends",
+    "Simian Spirit Guide", "Talisman of Creativity",
 ];
 
 fn subtypes_for(name: &str) -> Vec<String> {
@@ -248,6 +252,7 @@ fn apply_engine(name: &str, cd: &mut CardDef) {
         "Sakashima of a Thousand Faces" => cd.clones_sakashima_safe = true,
         "Veyran, Voice of Duality" => cd.is_trigger_doubler = true,
         "Harmonic Prodigy" => cd.is_trigger_doubler = true,
+        "Roaming Throne" => cd.is_trigger_doubler = true, // choose Wizard: doubles Krark flips + Wizard magecraft
         "Archmage Emeritus" => {
             cd.draw_per_trigger = 1;
             cd.trigger_cause = Some("is_cast_or_copy".into());

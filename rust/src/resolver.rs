@@ -61,6 +61,21 @@ pub fn analyze_cast(state: &GameState, reg: &Registry, card_name: &str) -> CastA
         panic!("{card_name} is not an instant/sorcery; Krark won't flip for it.");
     }
 
+    // Step Through is a Wizardcycle (activated ability), not a Krark-flipping cast: estimate it as
+    // a single non-flipping tutor resolution.
+    if card_name == "Step Through" {
+        return CastAnalysis {
+            card: card_name.to_string(),
+            flips: 0,
+            p: state.flip_p(),
+            p_resolve: 1.0,
+            p_return: 0.0,
+            e_effect_resolutions: 1.0,
+            wins_pmf: vec![1.0],
+            ..Default::default()
+        };
+    }
+
     let f = state.flips_per_cast(reg).min(MAX_FLIPS);
     let p = state.flip_p();
     let mut notes: Vec<String> = Vec::new();
@@ -244,11 +259,20 @@ pub fn discard_rank(state: &GameState, reg: &Registry, card: &str) -> f64 {
     val - redundant
 }
 
+/// Live finishers: with a storm engine assembling, these must never be pitched — stranding one in
+/// the graveyard with no recursion left is how the deck deck-outs mid-loop.
+pub fn is_finisher(card: &str) -> bool {
+    matches!(card, "Grapeshot" | "Brain Freeze" | "Underworld Breach")
+}
+
 pub fn pitch_worst(state: &mut GameState, reg: &Registry, k: i64) {
     // Mirror of SimGame::discard_to_hand_size (the end-of-turn discard) and mulligan bottoming: shed
     // the worst card by discard_rank, one at a time. discard_rank keeps win-cons/combo pieces on top
     // (Oracle highest), so a forced discard never throws the payoff while any lesser card exists.
     // (No filter/fallback: the old fallback pitched a protected card once the hand was all keepers.)
+    // With a Krark body on board (storm engine live) NEVER pitch a finisher — keep fewer cards than
+    // strand the kill (the all-keepers FS loop used to pitch Grapeshot/Brain Freeze and deck out).
+    let protect_finishers = state.krark_bodies(reg) >= 1;
     for _ in 0..k {
         if state.hand.is_empty() {
             return;
@@ -256,13 +280,17 @@ pub fn pitch_worst(state: &mut GameState, reg: &Registry, k: i64) {
         let worst = state
             .hand
             .iter()
+            .filter(|c| !(protect_finishers && is_finisher(c)))
             .min_by(|a, b| {
                 discard_rank(state, reg, a)
                     .partial_cmp(&discard_rank(state, reg, b))
                     .unwrap_or(std::cmp::Ordering::Equal)
             })
-            .unwrap()
-            .clone();
+            .cloned();
+        let worst = match worst {
+            Some(w) => w,
+            None => return, // hand is all finishers/essential — don't strand them
+        };
         if let Some(pos) = state.hand.iter().position(|c| *c == worst) {
             state.hand.remove(pos);
         }
@@ -361,6 +389,64 @@ fn pop_top(state: &mut GameState) -> Option<String> {
     }
 }
 
+/// Draw the best (by card_value) of the top `k` cards — models look-at-top selection: Ponder /
+/// Brainstorm (reorder top 3, draw best), Preordain (scry 2 + draw), Serum Visions (draw + scry 2),
+/// Opt (scry 1 + draw). The non-chosen looked-at cards stay on top; the dig-toward-best is the value
+/// (a plain draw would take a random top card instead).
+fn dig_best(state: &mut GameState, reg: &Registry, k: usize) {
+    if state.library.is_empty() {
+        return;
+    }
+    let look = k.min(state.library.len());
+    let top: Vec<String> = state.library.iter().take(look).cloned().collect();
+    let keep = wishlist::best(state, reg, &top, 1, false)[0].clone();
+    if let Some(pos) = state.library.iter().position(|c| *c == keep) {
+        state.library.remove(pos);
+    }
+    state.hand.push(keep);
+}
+
+/// Serum Visions: draw a card, THEN scry. The immediate draw is the blind top card (no selection —
+/// this is what separates it from Preordain, whose scry happens before the draw); the scry only
+/// improves the NEXT draw, modeled by promoting the best of the next `scry_n` cards to the top.
+fn draw_then_scry(state: &mut GameState, reg: &Registry, scry_n: usize) {
+    if state.library.is_empty() {
+        return;
+    }
+    let drawn = state.library.remove(0); // blind top draw, before the scry
+    state.hand.push(drawn);
+    let look = scry_n.min(state.library.len());
+    if look <= 1 {
+        return;
+    }
+    let top: Vec<String> = state.library.iter().take(look).cloned().collect();
+    let best = wishlist::best(state, reg, &top, 1, false)[0].clone();
+    if let Some(pos) = state.library.iter().take(look).position(|c| *c == best) {
+        if pos != 0 {
+            let b = state.library.remove(pos);
+            state.library.insert(0, b); // best of the scryed cards is drawn next
+        }
+    }
+}
+
+/// Consider: surveil 1 then draw. Draw the best of the top `k`; any looked-at card ABOVE the kept one
+/// is binned to the graveyard (the surveil), which also fuels Underworld Breach / Gale recursion.
+fn dig_best_surveil(state: &mut GameState, reg: &Registry, k: usize) {
+    if state.library.is_empty() {
+        return;
+    }
+    let look = k.min(state.library.len());
+    let top: Vec<String> = state.library.iter().take(look).cloned().collect();
+    let keep = wishlist::best(state, reg, &top, 1, false)[0].clone();
+    let keep_pos = state.library.iter().position(|c| *c == keep).unwrap_or(0);
+    let binned: Vec<String> = state.library.drain(0..keep_pos).collect();
+    state.graveyard.extend(binned);
+    if !state.library.is_empty() {
+        let drawn = state.library.remove(0);
+        state.hand.push(drawn);
+    }
+}
+
 /// Run the per-card effect `n` total instances (resolutions + storm copies). `rng` is used by
 /// Gamble's random discard. Returns true if the card had a scripted effect.
 /// Does `name`'s ETB tutor still have a legal target in the library?
@@ -410,17 +496,33 @@ fn run_effect<R: Rng + ?Sized>(
     rng: &mut R,
 ) -> bool {
     match card {
-        "Ponder" | "Brainstorm" => {
+        "Ponder" | "Brainstorm" | "Preordain" => {
+            // Ponder/Brainstorm reorder the top 3 and draw the best; Preordain scrys 2 BEFORE drawing,
+            // so its draw is selected too — all modeled as "dig best of top 3".
             for _ in 0..n {
-                if state.library.is_empty() {
-                    break;
-                }
-                let top: Vec<String> = state.library.iter().take(3).cloned().collect();
-                let keep = wishlist::best(state, reg, &top, 1, false)[0].clone();
-                if let Some(pos) = state.library.iter().position(|c| *c == keep) {
-                    state.library.remove(pos);
-                }
-                state.hand.push(keep);
+                dig_best(state, reg, 3);
+            }
+            true
+        }
+        "Serum Visions" => {
+            // draw a card, THEN scry 2 — the draw is blind; the scry improves the next draw.
+            for _ in 0..n {
+                draw_then_scry(state, reg, 2);
+            }
+            true
+        }
+        "Opt" => {
+            // scry 1, draw a card: draw the better of the top 2.
+            for _ in 0..n {
+                dig_best(state, reg, 2);
+            }
+            true
+        }
+        "Consider" => {
+            // surveil 1, draw a card: draw the better of the top 2; the rejected top card goes to
+            // the graveyard (fuels Underworld Breach / Gale).
+            for _ in 0..n {
+                dig_best_surveil(state, reg, 2);
             }
             true
         }
@@ -481,11 +583,77 @@ fn run_effect<R: Rng + ?Sized>(
             state.mana.add("R", 2 * n);
             true
         }
-        "Gitaxian Probe" | "Peek" | "Borne Upon a Wind" | "Opt" | "Consider" | "Serum Visions"
-        | "Preordain" => {
+        // Genuinely selectionless draw-1 cantrips: Peek/Probe look at an opponent's hand (irrelevant
+        // in goldfish), the red ones just draw. Scry/surveil cantrips are handled above.
+        "Gitaxian Probe" | "Peek" | "Borne Upon a Wind"
+        | "Overmaster" | "Expedite" | "Might of the Meek"
+        | "Crimson Wisps" | "Renegade Tactics" | "Accelerate" => {
             for _ in 0..n {
                 if let Some(c) = pop_top(state) {
                     state.hand.push(c);
+                }
+            }
+            true
+        }
+        "Brightstone Ritual" => {
+            // Add {R} per Goblin on the battlefield; in this deck goblin-count == Krark bodies
+            // (Krark + any clone copying him). Scales with the board the engine builds up.
+            state.mana.add("R", state.krark_bodies(reg) * n);
+            true
+        }
+        "Heroes' Hangout" => {
+            // Date Night mode: exile top two, keep the better one to play (exiled_play),
+            // the other is exiled face-down (unplayable). Each copy digs two anew.
+            for _ in 0..n {
+                let take = 2.min(state.library.len());
+                if take == 0 {
+                    break;
+                }
+                let mut drawn: Vec<String> = Vec::new();
+                for _ in 0..take {
+                    drawn.push(state.library.remove(0));
+                }
+                let keep = wishlist::best(state, reg, &drawn, 1, false)[0].clone();
+                if let Some(pos) = drawn.iter().position(|c| *c == keep) {
+                    drawn.remove(pos);
+                }
+                state.exiled_play.push(keep);
+                for c in drawn {
+                    state.exile.push(c);
+                }
+            }
+            true
+        }
+        "Mystical Tutor" => {
+            // Search for the best instant/sorcery and put it on TOP of the library (NOT into hand) —
+            // the next draw retrieves it. Does NOT reduce the library, so it sets up a draw rather
+            // than digging. The spell shuffles before placing on top, so Krark copies / repeated
+            // casts do NOT stack: each just re-seats the single best I/S on top (n is irrelevant).
+            let cands: Vec<String> = state
+                .library
+                .iter()
+                .filter(|c| reg.get(c).is_instant_or_sorcery())
+                .cloned()
+                .collect();
+            if let Some(best) = wishlist::best(state, reg, &cands, 1, true).first().cloned() {
+                if let Some(pos) = state.library.iter().position(|c| *c == best) {
+                    let card = state.library.remove(pos);
+                    state.library.insert(0, card);
+                }
+            }
+            true
+        }
+        "Step Through" => {
+            // Wizardcycling: fetch the best library Wizard to hand. Krark is the commander, so it
+            // is never in the library and can't be found. (Modeled as a {2} Wizard tutor; note the
+            // real cycle is an ability and wouldn't trigger Krark/magecraft — minor over-credit.)
+            const WIZARDS: &[&str] = &[
+                "Dualcaster Mage", "Veyran, Voice of Duality", "Vivi Ornitier",
+                "Archmage Emeritus", "Snapcaster Mage", "Gale, Waterdeep Prodigy", "Spellseeker",
+            ];
+            for _ in 0..n {
+                if wishlist::tutor(state, reg, |c| WIZARDS.contains(&c)).is_none() {
+                    break;
                 }
             }
             true
@@ -594,6 +762,20 @@ pub fn resolve_cast_sample<R: Rng + ?Sized>(
     choices: &Choices,
     forced_wins: Option<i64>,
 ) -> ResolveLog {
+    // Step Through is used via Wizardcycling — an ACTIVATED ABILITY, not a spell cast. It must not
+    // flip Krark, trigger magecraft, or add to storm. Just discard it (the caller does that) and
+    // tutor a Wizard.
+    if card_name == "Step Through" {
+        run_effect(state, reg, card_name, 1, choices, rng);
+        return ResolveLog {
+            flips: 0,
+            wins: 0,
+            storm_copies: 0,
+            resolutions: 1,
+            triggers: Vec::new(),
+            warnings: Vec::new(),
+        };
+    }
     let f = state.flips_per_cast(reg).min(MAX_FLIPS);
     let p = state.flip_p();
     let storm_prior = state.storm_count;

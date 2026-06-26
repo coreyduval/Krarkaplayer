@@ -175,6 +175,12 @@ pub fn deploy_engine_perms(s: &mut GameState, reg: &Registry) -> Vec<String> {
                 cands.push(nm.clone());
             }
         }
+        // Underworld Breach isn't an engine permanent (no triggers), but cast it when the escape
+        // combo is live (payoff in graveyard + depth + a Krark body) so the kill search can ride the
+        // graveyard escapes. It self-sacs EOT, so breach_line_live keeps it from being wasted.
+        if crate::loops::breach_line_live(s, reg) && !cands.iter().any(|c| c == "Underworld Breach") {
+            cands.push("Underworld Breach".to_string());
+        }
         // mana rocks first, then cheapest engine piece
         cands.sort_by(|a, b| {
             let ka = (mana_source(a).is_none(), s.cast_cost(reg, a).values().sum::<i64>());

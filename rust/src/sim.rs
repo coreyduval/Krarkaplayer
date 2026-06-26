@@ -66,6 +66,7 @@ fn mana_rocks() -> &'static [&'static str] {
     &[
         "Sol Ring", "Arcane Signet", "Chrome Mox", "Mox Diamond", "Lotus Petal",
         "Springleaf Drum", "Mana Vault", "Mox Amber", "Relic of Legends",
+        "Simian Spirit Guide", "Talisman of Creativity",
     ]
 }
 
@@ -121,10 +122,12 @@ pub struct MullCfg {
 }
 impl Default for MullCfg {
     fn default() -> Self {
-        // gate=None validated as the best mulligan policy (2026-06-23 experiment): keeping
-        // slow-but-functional hands beats mulliganing for tempo. The old Fast gate was net-negative
-        // after the correctness + card-flow changes inverted its original "faster" result.
-        MullCfg { min_lands: 1, gate: MullGate::None, depth: 2 }
+        // Default = Fast gate + min_lands 2, validated under the corrected MULTIPLAYER free-mulligan
+        // rule (2026-06-24). The earlier "gate=None is best, Fast is net-negative" result was an
+        // ARTIFACT of modeling standard London with no free mull — there the Fast gate cost a card.
+        // With the free first mulligan (this is a 4-player pod), Fast is neutral-to-better on TTK and
+        // best on win%, and a 2-land floor (ship the 0-1 land gambles) shaves the slow tail for free.
+        MullCfg { min_lands: 2, gate: MullGate::Fast, depth: 2 }
     }
 }
 /// Process-global mulligan policy, set once from the CLI before the (parallel) sweep runs.
@@ -140,7 +143,39 @@ fn dev_cap() -> usize {
     *DEV_CAP.get().unwrap_or(&12)
 }
 
-const SAC_ON_PLAY: &[&str] = &["Lotus Petal"];
+/// Color-aware land selection (default ON; opt out --no-smart-land). When off, the land drop reverts
+/// to "first land in hand", which color-screws hands that lean one color (e.g. laying blue lands
+/// while holding Mountains for red spells).
+pub static SMART_LAND: std::sync::OnceLock<bool> = std::sync::OnceLock::new();
+fn smart_land() -> bool {
+    *SMART_LAND.get().unwrap_or(&true)
+}
+
+/// Adaptive (turn-indexed) commit gate. When on, `commit_gate` uses a per-turn threshold instead of
+/// the flat `send_gate`: send ever-more-marginal lines as the turn-8 cutoff approaches, because the
+/// continuation value of waiting falls to ~0 (a "win" past T8 is worthless in cEDH). Seeded from the
+/// optimal-stopping math; tune the vector and re-estimate. Default off (A/B gated).
+pub static ADAPTIVE_GATE: std::sync::OnceLock<bool> = std::sync::OnceLock::new();
+fn adaptive_gate_value(turn: i64) -> f64 {
+    match turn {
+        ..=3 => 0.20,
+        4 => 0.17,
+        5 => 0.12,
+        6 => 0.06,
+        7 => 0.02,
+        _ => 0.0, // T8+: last live turn — send any line with upside
+    }
+}
+
+/// Rollout simulation depth (casts per go-off playout). Higher lets the planner simulate looping
+/// Frantic Search up to higher storm before committing, so it recognizes burn/mill finishers
+/// earlier — at the cost of more compute per turn. Default 20.
+pub static ROLLOUT_STEPS: std::sync::OnceLock<i64> = std::sync::OnceLock::new();
+fn rollout_steps() -> i64 {
+    *ROLLOUT_STEPS.get().unwrap_or(&20)
+}
+
+const SAC_ON_PLAY: &[&str] = &["Lotus Petal", "Simian Spirit Guide"];
 const DISCARD_LAND_ON_PLAY: &[&str] = &["Mox Diamond"];
 // Cards Chrome Mox should not imprint (exile) if anything else is available — payoffs/combo pieces.
 const NEVER_IMPRINT: &[&str] = &[
@@ -149,7 +184,7 @@ const NEVER_IMPRINT: &[&str] = &[
 ];
 const RAMP_SPELLS: &[&str] = &["Jeska's Will"];
 
-const CLONES: &[&str] = &["Sakashima of a Thousand Faces", "Glasspool Mimic", "Phantasmal Image"];
+const CLONES: &[&str] = &["Sakashima of a Thousand Faces", "Glasspool Mimic", "Phantasmal Image", "Phyrexian Metamorph", "Mockingbird"];
 
 // _ACTION = wishlist._ENGINE | {Twinflame, Dualcaster Mage, Heat Shimmer}
 fn is_action(name: &str) -> bool {
@@ -165,6 +200,7 @@ fn play_priority(name: &str) -> Option<i64> {
         "Sol Ring" => 1,
         "Mana Vault" => 1,
         "Arcane Signet" => 2,
+        "Talisman of Creativity" => 2,
         "Springleaf Drum" => 2,
         "Relic of Legends" => 3,
         // Mystic Remora: {U} for one delayed draw then sac (conservative: ~1 opponent trigger).
@@ -178,12 +214,15 @@ fn play_priority(name: &str) -> Option<i64> {
         "Krark, the Thumbless" => 3,
         "Birgi, God of Storytelling" => 4,
         "Harmonic Prodigy" => 4,
+        "Roaming Throne" => 4,
         "Okaun, Eye of Chaos" => 4,
         "Sakashima of a Thousand Faces" => 4,
         "Zndrsplt, Eye of Wisdom" => 4,
         "Rhystic Study" => 4,
         "Glasspool Mimic" => 5,
         "Phantasmal Image" => 5,
+        "Phyrexian Metamorph" => 5,
+        "Mockingbird" => 5,
         "Vivi Ornitier" => 5,
         "Archmage Emeritus" => 5,
         "Storm-Kiln Artist" => 5,
@@ -242,6 +281,12 @@ pub struct SimGame<'a> {
     pub dead: bool,         // set when a fatal fizzle happens (no second chance — dead next turn)
     pub on_the_draw: bool,  // 4-player pod: random seat, so 3/4 of games we're on the draw (T1 draw)
     pub sacrificed: HashSet<usize>, // board idxs spent as one-shot sac sources (Lotus Petal): gone for good
+
+    // Source-utilization audit (opt-in; zero cost when audit_on is false).
+    audit_on: bool,
+    audit: AuditStats,
+    audit_turn: Vec<(String, i64, bool)>, // sources tapped this turn: (name, units, is_oneshot)
+    audit_turn_produced: i64,
 }
 
 impl<'a> SimGame<'a> {
@@ -290,6 +335,10 @@ impl<'a> SimGame<'a> {
             dead: false,
             on_the_draw,
             sacrificed: HashSet::new(),
+            audit_on: false,
+            audit: AuditStats::default(),
+            audit_turn: Vec::new(),
+            audit_turn_produced: 0,
         };
         g.london_mulligan(deck, &mut shuffle_rng);
         g
@@ -297,6 +346,14 @@ impl<'a> SimGame<'a> {
 
     pub fn set_dev_seed(&mut self, seed: u64) {
         self.dev_rng = StdRng::seed_from_u64(seed);
+    }
+
+    pub fn enable_audit(&mut self) {
+        self.audit_on = true;
+    }
+
+    pub fn audit_stats(&self) -> &AuditStats {
+        &self.audit
     }
 
     pub fn set_send_gate(&mut self, g: f64) {
@@ -394,7 +451,11 @@ impl<'a> SimGame<'a> {
             let lib: Vec<String> = d[7..].to_vec();
             let keep = (mulls == depth) || self.keepable_at(&hand, mulls);
             if keep {
-                let bottom = self.choose_bottom(&hand, mulls);
+                // Multiplayer Commander (this is a 4-player pod): the FIRST mulligan is FREE — it
+                // doesn't count toward the cards bottomed. So after `mulls` mulligans you bottom
+                // max(0, mulls - 1): keep 7 after one mull, 6 after two, 5 after three. (Duel
+                // Commander has no free mull; this models the multiplayer pod.)
+                let bottom = self.choose_bottom(&hand, mulls.saturating_sub(1));
                 let mut h = hand.clone();
                 let mut l = lib.clone();
                 for c in &bottom {
@@ -509,6 +570,10 @@ impl<'a> SimGame<'a> {
                     // Underworld Breach combo, modeled separately in loops.rs. Keep it out of the
                     // turn-by-turn casting tap-path.
                     && !matches!(mana_source(n), Some((SrcMode::SacHand, _)))
+                    // Mana Vault is never in the normal tap path — its {C}{C}{C} is wasted on small
+                    // casts (and starts the 1-life/turn bleed). It's cracked deliberately by the
+                    // eager tap in try_cast only when a cast actually needs >=3 generic.
+                    && n.as_str() != "Mana Vault"
             })
             .filter(|(i, _)| self.source_active(*i))
             .filter(|(i, (n, _))| {
@@ -541,6 +606,12 @@ impl<'a> SimGame<'a> {
                 }
             }
             pool.add_cost(&produced);
+            if self.audit_on {
+                let units: i64 = produced.values().sum();
+                let oneshot = mode == SrcMode::Sac || mode == SrcMode::SacHand;
+                self.audit_turn.push((name.clone(), units, oneshot));
+                self.audit_turn_produced += units;
+            }
             self.our_life -= crate::tables::life_per_tap(&name);
             if mode == SrcMode::Sac {
                 // one-shot: sacrifice after producing mana (e.g. Lotus Petal) — it can't be tapped
@@ -650,6 +721,19 @@ impl<'a> SimGame<'a> {
             }
         }
         let pool_floating = *pool;
+        // Eager Mana Vault: a cast needing >=3 generic (e.g. Sakashima's {3}{U}) uses all of its
+        // {C}{C}{C}, so crack it now — colorless pays the generic, lands stay free for the pips and a
+        // second play. It's excluded from the normal tap path, so this is the ONLY thing that taps
+        // it. Stays tapped (1 life/turn after) — the intended trade for a turn-earlier engine piece.
+        if cost.get("generic").copied().unwrap_or(0) >= 3 {
+            if let Some(idx) = (0..self.board.len()).find(|&i| {
+                self.board[i].0 == "Mana Vault"
+                    && !self.tapped.contains(&i)
+                    && !self.sacrificed.contains(&i)
+            }) {
+                self.tap_source(idx, pool);
+            }
+        }
         // Auto-tap sources up front (same logic as `pay`) so the verbose line can show the
         // mana actually AVAILABLE for this cast, then the leftover after paying.
         while !pool.can_pay(&cost) {
@@ -718,12 +802,21 @@ impl<'a> SimGame<'a> {
         if SAC_ON_PLAY.contains(&card) {
             if let Some((_, produced)) = mana_source(card) {
                 pool.add_cost(&produced);
+                if self.audit_on {
+                    let units: i64 = produced.values().sum();
+                    self.audit_turn.push((card.to_string(), units, true));
+                    self.audit_turn_produced += units;
+                }
             }
         } else {
             let cp = self.copy_target(card);
             let new_idx = self.board.len();
             self.board.push((card.to_string(), cp.clone()));
-            if is_mana_source(card) {
+            // Auto-tap a freshly deployed mana source so its mana is available this turn — EXCEPT
+            // Mana Vault: it doesn't untap and bleeds 1 life/turn, so cracking it on deploy wastes
+            // its {C}{C}{C} on an empty turn. It's tapped deliberately by the eager tap in try_cast
+            // when a cast actually needs >=3 generic (e.g. Sakashima).
+            if is_mana_source(card) && card != "Mana Vault" {
                 self.tap_source(new_idx, pool);
             }
             if cp.is_none() && is_etb_tutor(card) {
@@ -786,6 +879,75 @@ impl<'a> SimGame<'a> {
         self.board.push((card.to_string(), None));
         self.tap_source(new_idx, pool);
         self.played_land = true;
+    }
+
+    /// Pick which land to play: the one covering our largest colored-mana deficit, where deficit =
+    /// (R/U pips demanded by nonland spells in hand + command zone) minus (R/U our untapped sources
+    /// already make; wildcards count toward either color). Falls back to first-in-hand when nothing
+    /// is demanded or smart_land is off. Fixes red-screwing yourself by laying U lands while holding
+    /// Mountains (and vice versa). Tie-break: first in hand (stable).
+    fn choose_land(&self) -> Option<String> {
+        let lands: Vec<String> = self.hand.iter().filter(|c| is_land_name(c)).cloned().collect();
+        if lands.len() <= 1 || !smart_land() {
+            return lands.into_iter().next();
+        }
+        const COLORS: [&str; 2] = ["R", "U"];
+        let mut wild = 0i64;
+        let mut have = [0i64; 2];
+        for (i, (n, _)) in self.board.iter().enumerate() {
+            if self.tapped.contains(&i) || self.sacrificed.contains(&i) {
+                continue;
+            }
+            if let Some((_, prod)) = mana_source(n) {
+                wild += prod.get("*").copied().unwrap_or(0);
+                for (k, c) in COLORS.iter().enumerate() {
+                    have[k] += prod.get(*c).copied().unwrap_or(0);
+                }
+            }
+        }
+        let mut need = [0i64; 2];
+        for c in self.hand.iter().chain(self.command_zone.iter()) {
+            if is_land_name(c) {
+                continue;
+            }
+            let cost = &self.reg.get(c).cost;
+            for (k, col) in COLORS.iter().enumerate() {
+                need[k] += cost.get(*col).copied().unwrap_or(0);
+            }
+        }
+        let deficit = [(need[0] - have[0] - wild).max(0), (need[1] - have[1] - wild).max(0)];
+        if deficit[0] == 0 && deficit[1] == 0 {
+            return lands.into_iter().next();
+        }
+        // best colored deficit each candidate covers (a wildcard land covers either color)
+        let score = |name: &str| -> i64 {
+            match mana_source(name) {
+                Some((_, prod)) => {
+                    let mut best = if prod.get("*").copied().unwrap_or(0) > 0 {
+                        deficit[0].max(deficit[1])
+                    } else {
+                        0
+                    };
+                    for (k, col) in COLORS.iter().enumerate() {
+                        if prod.get(*col).copied().unwrap_or(0) > 0 {
+                            best = best.max(deficit[k]);
+                        }
+                    }
+                    best
+                }
+                None => 0,
+            }
+        };
+        let mut best_land = lands[0].clone();
+        let mut best_score = score(&lands[0]);
+        for l in &lands[1..] {
+            let s = score(l);
+            if s > best_score {
+                best_score = s;
+                best_land = l.clone();
+            }
+        }
+        Some(best_land)
     }
 
     fn candidates_perm(&self, skip: &HashSet<String>) -> Vec<(String, bool)> {
@@ -997,6 +1159,8 @@ impl<'a> SimGame<'a> {
     fn commit_gate(&self) -> f64 {
         if self.fizzle_is_fatal() {
             self.win_threshold
+        } else if *ADAPTIVE_GATE.get().unwrap_or(&false) {
+            adaptive_gate_value(self.turn)
         } else {
             self.send_gate
         }
@@ -1126,13 +1290,20 @@ impl<'a> SimGame<'a> {
         }
         let excess = self.hand.len() - MAX_HAND_SIZE;
         let state = self.build_state(pool);
+        // With a storm engine live (Krark body out) never drop a finisher to hand size — keep the
+        // kill even if the hand stays above the limit; it should be cashed before this matters.
+        let protect_finishers = state.krark_bodies(self.reg) >= 1;
         let mut order: Vec<String> = self.hand.clone();
         order.sort_by(|a, b| {
             discard_rank(&state, self.reg, a)
                 .partial_cmp(&discard_rank(&state, self.reg, b))
                 .unwrap_or(std::cmp::Ordering::Equal)
         });
-        let drop: Vec<String> = order.into_iter().take(excess).collect();
+        let drop: Vec<String> = order
+            .into_iter()
+            .filter(|c| !(protect_finishers && crate::resolver::is_finisher(c)))
+            .take(excess)
+            .collect();
         if self.verbose && !drop.is_empty() {
             println!("  DISCARD : {} (end-of-turn to hand size)", drop.join(", "));
         }
@@ -1176,7 +1347,9 @@ impl<'a> SimGame<'a> {
         // candidate makes progress, `cands` empties and we break. 60 is just a termination backstop —
         // the real stop is the no-progress check + the library floor (deck-out guard).
         for _ in 0..dev_cap() {
-            if state.hand.iter().any(|nm| is_engine_permanent(self.reg, nm)) {
+            if state.hand.iter().any(|nm| is_engine_permanent(self.reg, nm))
+                || loops::breach_line_live(&state, self.reg)
+            {
                 if !deploy_engine_perms(&mut state, self.reg).is_empty() {
                     recompute(&state, &mut scores, self.reg);
                 }
@@ -1338,6 +1511,10 @@ impl<'a> SimGame<'a> {
         }
 
         let mut pool = ManaPool { slots: [0; 7], treasures: self.treasures };
+        if self.audit_on {
+            self.audit_turn.clear();
+            self.audit_turn_produced = 0;
+        }
 
         // Ragavan, Nimble Pilferer: vs inert opponents it connects in combat every turn it's been in
         // play, making one Treasure. We bank it at turn start from the PERSISTENT board, which models
@@ -1357,8 +1534,8 @@ impl<'a> SimGame<'a> {
             }
         }
 
-        // play first land
-        if let Some(card) = self.hand.iter().find(|c| is_land_name(c)).cloned() {
+        // play first land (color-aware: see choose_land)
+        if let Some(card) = self.choose_land() {
             self.play_land(&card, &mut pool, true);
             if self.verbose {
                 println!("  LAND    : {card}");
@@ -1503,6 +1680,47 @@ impl<'a> SimGame<'a> {
                 if breach { "   [Breach in hand/play: escape needs card cost + exile 3 others]" } else { "" }
             );
         }
+        // Audit fold: this turn did NOT win (all win-returns are above), so any floating mana left
+        // in the pool is wasted. Treasures persist and are excluded.
+        if self.audit_on {
+            let leftover: i64 = pool.slots.iter().sum();
+            let wasteful = leftover > 0;
+            self.audit.dev_turns += 1;
+            self.audit.produced += self.audit_turn_produced;
+            self.audit.wasted += leftover;
+            let taps = std::mem::take(&mut self.audit_turn);
+            for (name, units, oneshot) in &taps {
+                *self.audit.src_taps.entry(name.clone()).or_insert(0) += 1;
+                *self.audit.src_produced.entry(name.clone()).or_insert(0) += units;
+                if wasteful {
+                    *self.audit.src_waste_taps.entry(name.clone()).or_insert(0) += 1;
+                }
+                if *oneshot {
+                    *self.audit.oneshot_fires.entry(name.clone()).or_insert(0) += 1;
+                    if wasteful {
+                        *self.audit.oneshot_waste_fires.entry(name.clone()).or_insert(0) += 1;
+                    }
+                }
+            }
+            // Why is the mana unspent? Capture what's stuck in hand on early wasteful turns (2-6) and
+            // whether the leftover pool could actually have paid for it (affordable = held by choice;
+            // unaffordable = the scraps left can't cast it). Lands excluded — they don't spend mana.
+            if wasteful && (2..=6).contains(&self.turn) {
+                self.audit.early_waste_turns += 1;
+                self.audit.early_waste_mana += leftover;
+                let hand = self.hand.clone();
+                for c in &hand {
+                    if is_land_name(c) {
+                        continue;
+                    }
+                    let afford = pool.can_pay(&self.reg.get(c).cost);
+                    *self.audit.hand_card.entry(c.clone()).or_insert(0) += 1;
+                    if afford {
+                        *self.audit.hand_card_affordable.entry(c.clone()).or_insert(0) += 1;
+                    }
+                }
+            }
+        }
         None
     }
 
@@ -1572,6 +1790,50 @@ pub struct GameResult {
     pub engine: String,
 }
 
+/// Source-utilization audit (opt-in via `enable_audit`). Collected only over NON-winning
+/// development turns — on a winning turn the mana feeds the kill, so it isn't "wasted". A turn's
+/// leftover floating mana (`pool.slots`, treasures excluded since they persist) is the mana that
+/// was produced but discarded. Per-source counters answer: how often is each mana source actually
+/// tapped, how much does it produce, and how often does it fire on a turn that ends with mana left
+/// on the table (the "tapped empty / accelerated into nothing" signal behind the fast-mana LOO cut).
+#[derive(Default, Clone)]
+pub struct AuditStats {
+    pub games: u64,
+    pub dev_turns: u64,         // non-winning turns folded in
+    pub produced: i64,          // total mana units produced from battlefield taps on dev turns
+    pub wasted: i64,            // total floating mana discarded at end of those turns
+    pub src_taps: HashMap<String, u64>,        // activations per source
+    pub src_produced: HashMap<String, i64>,    // mana units produced per source
+    pub src_waste_taps: HashMap<String, u64>,  // activations on a turn that ended with leftover>0
+    pub oneshot_fires: HashMap<String, u64>,   // one-shot (Sac/SacHand) activations
+    pub oneshot_waste_fires: HashMap<String, u64>, // one-shot activations on a leftover>0 turn
+
+    // Why is mana unspent? On turns 2-6 that end with floating mana, record the non-land cards left
+    // in hand and whether the leftover pool could actually have paid for each (affordable-but-held).
+    pub early_waste_turns: u64,
+    pub early_waste_mana: i64,
+    pub hand_card: HashMap<String, u64>,            // times card sat in hand on an early wasteful turn
+    pub hand_card_affordable: HashMap<String, u64>, // of those, times leftover could pay its cost
+}
+
+impl AuditStats {
+    pub fn merge(&mut self, o: &AuditStats) {
+        self.games += o.games;
+        self.dev_turns += o.dev_turns;
+        self.produced += o.produced;
+        self.wasted += o.wasted;
+        for (k, v) in &o.src_taps { *self.src_taps.entry(k.clone()).or_insert(0) += v; }
+        for (k, v) in &o.src_produced { *self.src_produced.entry(k.clone()).or_insert(0) += v; }
+        for (k, v) in &o.src_waste_taps { *self.src_waste_taps.entry(k.clone()).or_insert(0) += v; }
+        for (k, v) in &o.oneshot_fires { *self.oneshot_fires.entry(k.clone()).or_insert(0) += v; }
+        for (k, v) in &o.oneshot_waste_fires { *self.oneshot_waste_fires.entry(k.clone()).or_insert(0) += v; }
+        self.early_waste_turns += o.early_waste_turns;
+        self.early_waste_mana += o.early_waste_mana;
+        for (k, v) in &o.hand_card { *self.hand_card.entry(k.clone()).or_insert(0) += v; }
+        for (k, v) in &o.hand_card_affordable { *self.hand_card_affordable.entry(k.clone()).or_insert(0) += v; }
+    }
+}
+
 /// Bucket a winning Line's detail into a win-condition category.
 pub fn classify_wincon(detail: &str) -> &'static str {
     let d = detail;
@@ -1588,6 +1850,36 @@ pub fn classify_wincon(detail: &str) -> &'static str {
     } else {
         "other"
     }
+}
+
+/// One game with the source-utilization audit on; returns its per-game AuditStats (games=1).
+/// Mirrors play_quiet_luck's pilot setup so the audit reflects the real sweep configuration.
+pub fn play_audit(
+    reg: &Registry,
+    deck: &[String],
+    seed: u64,
+    luck: u64,
+    max_turns: i64,
+    send_gate: f64,
+    fast_mull: bool,
+) -> AuditStats {
+    let mut game = SimGame::new(reg, deck, seed, 0.95, fast_mull);
+    game.set_dev_seed(seed.wrapping_mul(1_000_003).wrapping_add(luck));
+    game.set_send_gate(send_gate);
+    game.enable_audit();
+    let det = DeterministicKillSearch::default();
+    let mut prob = ProbabilisticPlanner { mc_sims: 80, max_first: 2, rollout_steps: rollout_steps(), ..Default::default() };
+    for _ in 0..max_turns {
+        if game.play_turn(&det, &mut prob).is_some() {
+            break;
+        }
+        if game.dead {
+            break;
+        }
+    }
+    let mut s = game.audit_stats().clone();
+    s.games = 1;
+    s
 }
 
 pub fn play_quiet_luck(
@@ -1610,7 +1902,7 @@ pub fn play_quiet_luck(
     game.set_rock_cutoff(rock_cutoff);
     game.set_check_first(check_first);
     let det = DeterministicKillSearch::default();
-    let mut prob = ProbabilisticPlanner { mc_sims: 80, max_first: 2, rollout_steps: 20, ..Default::default() };
+    let mut prob = ProbabilisticPlanner { mc_sims: 80, max_first: 2, rollout_steps: rollout_steps(), ..Default::default() };
     let mut won = false;
     let mut detail = String::new();
     for _ in 0..max_turns {

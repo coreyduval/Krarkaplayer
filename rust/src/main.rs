@@ -4,7 +4,7 @@
 //! aiming for matching aggregates over a seeds x flip-trials sweep, not bit-exact RNG.
 //!
 //! PHASE 1 (done): card-DB loader + deck builder, validated byte-identical to
-//! `seed.build_deck()` (82 registry cards, 98-card deck, 8 Island / 12 Mountain).
+//! `seed.build_deck()` (98-card deck, 28 lands: 8 Island / 11 Mountain + 9 nonbasic).
 //!
 //! PHASE 2 (this file): the engine core —
 //!   * CardDef registry with the curated TYPES / SUBTYPES / ENGINE overlays (cards.py),
@@ -38,10 +38,16 @@ use cards::Registry;
 /// filler to 98 (registry already holds 1 Island + 1 Mountain, so add 7 + 11 -> 8/12).
 fn build_deck(reg: &Registry, islands: u32, mountains: u32) -> Vec<String> {
     const COMMANDERS: [&str; 2] = ["Krark, the Thumbless", "Sakashima of a Thousand Faces"];
+    // Cards kept in the registry for their CardDef (win predicate / selftests reference them) but
+    // intentionally NOT in the deck. Thassa's Oracle was cut but win.rs still references it.
+    // Thassa's Oracle: cut but kept for win.rs CardDef. Crimson Wisps / Renegade Tactics / Accelerate:
+    // red 1-mana cantrips kept in the registry for A/B testing (added to a deck via --add), not in the
+    // default list.
+    const DECK_EXCLUDE: [&str; 4] = ["Thassa's Oracle", "Crimson Wisps", "Renegade Tactics", "Accelerate"];
     let mut deck: Vec<String> = reg
         .ordered_names()
         .iter()
-        .filter(|n| !COMMANDERS.contains(&n.as_str()))
+        .filter(|n| !COMMANDERS.contains(&n.as_str()) && !DECK_EXCLUDE.contains(&n.as_str()))
         .cloned()
         .collect();
     for _ in 0..(islands - 1) {
@@ -54,7 +60,7 @@ fn build_deck(reg: &Registry, islands: u32, mountains: u32) -> Vec<String> {
 }
 
 fn dump_deck(reg: &Registry) {
-    let deck = build_deck(reg, 8, 12);
+    let deck = build_deck(reg, 8, 11);
     let mut counts: HashMap<&str, u32> = HashMap::new();
     for n in &deck {
         *counts.entry(n.as_str()).or_insert(0) += 1;
@@ -82,7 +88,7 @@ fn arg_vals(args: &[String], flag: &str) -> Vec<String> {
 
 // Mulligan experiment axes: --keep-min-lands N (A), --keep-gate fast|mana|none (B), --mull-depth N (C).
 fn parse_mull_cfg(args: &[String]) -> sim::MullCfg {
-    let min_lands = arg_val(args, "--keep-min-lands").and_then(|v| v.parse().ok()).unwrap_or(1);
+    let min_lands = arg_val(args, "--keep-min-lands").and_then(|v| v.parse().ok()).unwrap_or(2);
     let depth = arg_val(args, "--mull-depth").and_then(|v| v.parse().ok()).unwrap_or(2);
     let gate = match arg_val(args, "--keep-gate").as_deref() {
         Some("mana") => sim::MullGate::Mana,
@@ -126,7 +132,7 @@ fn percentile(sorted: &[i64], pct: f64) -> i64 {
 }
 
 fn run_sweep(reg: &Registry, n_games: u64, trials: u64, max_turns: i64, win_threshold: f64, seed_base: u64, fizzle_fatal: bool, send_gate: f64, fast_mull: bool, rock_cutoff: i64, check_first: bool, cuts: Vec<String>, adds: Vec<String>) {
-    let mut deck = build_deck(reg, 8, 12);
+    let mut deck = build_deck(reg, 8, 11);
     // Leave-one-out / manabase swaps: drop one copy per `--cut`, append one copy per `--add`.
     // A land<->spell swap is `--cut Mountain --add Ponder` (deck stays 98). No-op if a cut isn't present.
     for c in &cuts {
@@ -222,6 +228,36 @@ fn run_sweep(reg: &Registry, n_games: u64, trials: u64, max_turns: i64, win_thre
             percentile(&all_turns, 75.0),
             percentile(&all_turns, 90.0)
         );
+        // 5%-trimmed mean: drop the fastest 5% and slowest 5% of winning trials, average the rest.
+        let lo = (all_turns.len() as f64 * 0.05).floor() as usize;
+        let hi = all_turns.len() - lo;
+        let trimmed = &all_turns[lo..hi];
+        let tmean = trimmed.iter().sum::<i64>() as f64 / trimmed.len() as f64;
+        println!(
+            "  win-turn 5%-trimmed mean (drop best/worst 5%): {:.2}  over middle {} of {} wins",
+            tmean, trimmed.len(), all_turns.len()
+        );
+        // cEDH framing: games rarely pass turn ~10, so wins after that are effectively worthless
+        // (someone else closes first). Show the cumulative early-win curve P(win by turn T) over ALL
+        // games, the effective win rate by turn 10, and how many "wins" land in the dead zone (T>10).
+        let by = |t: i64| all_turns.iter().filter(|&&x| x <= t).count();
+        let pct = |c: usize| 100.0 * c as f64 / total as f64;
+        println!(
+            "  P(win by turn) over all {} games:  T2 {:.1}%  T3 {:.1}%  T4 {:.1}%  T5 {:.1}%  T6 {:.1}%  T7 {:.1}%  T8 {:.1}%  T10 {:.1}%  T12 {:.1}%",
+            total, pct(by(2)), pct(by(3)), pct(by(4)), pct(by(5)), pct(by(6)), pct(by(7)), pct(by(8)), pct(by(10)), pct(by(12))
+        );
+        // cEDH objective: a win on turn t scores 10*0.6^(t-2) points for t in [2,8], else 0 — earlier
+        // wins weighted much higher, tailing off non-linearly toward the turn-8 cutoff
+        // (T2=10, T3=6, T4=3.6, T5=2.2, T6=1.3, T7=0.78, T8=0.47). Reported as avg points/game
+        // (max ~10 if every game won on T2). This is the number to MAXIMIZE.
+        let w = |t: i64| -> f64 {
+            if (2..=8).contains(&t) { 10.0 * 0.6_f64.powi((t - 2) as i32) } else { 0.0 }
+        };
+        let early_score: f64 = all_turns.iter().map(|&t| w(t)).sum::<f64>() / total as f64;
+        println!(
+            "  >>> EARLY-WIN SCORE (geo0.6 T2-8, earlier=better, max~10): {:.3}   |   P(win by T6) {:.1}%   P(win by T8) {:.1}%",
+            early_score, pct(by(6)), pct(by(8))
+        );
     }
     // win-condition + engine breakdown over winning trials
     if total_wins > 0 {
@@ -259,6 +295,97 @@ fn run_sweep(reg: &Registry, n_games: u64, trials: u64, max_turns: i64, win_thre
         elapsed,
         elapsed / total as f64
     );
+}
+
+/// Source-utilization audit: run N games serially with per-source instrumentation on, then report
+/// how each mana source is actually used during NON-winning development turns — taps, mana produced,
+/// and how often it fires on a turn that ends with mana still floating (wasted). This separates
+/// fast-mana that's genuinely WASTED (a pilot problem) from fast-mana that's merely REDUNDANT (the
+/// deck had enough mana anyway). Winning turns are excluded — there the mana feeds the kill.
+fn run_audit(reg: &Registry, n_games: u64, trials: u64, max_turns: i64, seed_base: u64, send_gate: f64, fast_mull: bool, cuts: Vec<String>, adds: Vec<String>) {
+    let mut deck = build_deck(reg, 8, 11);
+    for c in &cuts {
+        if let Some(pos) = deck.iter().position(|x| x == c) {
+            deck.remove(pos);
+        }
+    }
+    for a in &adds {
+        if reg.ordered_names().iter().any(|n| n == a) {
+            deck.push(a.clone());
+        }
+    }
+    let mut tasks: Vec<(u64, u64)> = Vec::new();
+    for s in seed_base..seed_base + n_games {
+        for k in 0..trials {
+            tasks.push((s, k));
+        }
+    }
+    let t0 = std::time::Instant::now();
+    let acc = tasks
+        .par_iter()
+        .map(|(s, k)| sim::play_audit(reg, &deck, *s, *k, max_turns, send_gate, fast_mull))
+        .reduce(sim::AuditStats::default, |mut a, b| {
+            a.merge(&b);
+            a
+        });
+    let elapsed = t0.elapsed().as_secs_f64();
+
+    println!("======================================================================");
+    println!("  SOURCE-UTILIZATION AUDIT: {} games ({n_games} seeds x {trials} flips)", acc.games);
+    if !cuts.is_empty() || !adds.is_empty() {
+        println!("  DECK MOD: cut [{}]  add [{}]", cuts.join(", "), adds.join(", "));
+    }
+    println!("======================================================================");
+    println!(
+        "  dev (non-winning) turns: {}   mana produced on them: {}   wasted (floated & lost): {} ({:.1}%)",
+        acc.dev_turns, acc.produced, acc.wasted,
+        if acc.produced > 0 { 100.0 * acc.wasted as f64 / acc.produced as f64 } else { 0.0 }
+    );
+    println!("  ------------------------------------------------------------------");
+    println!("  PER-SOURCE (over dev turns; 'waste%' = taps on a turn that ended with mana floating)");
+    println!("  {:<26} {:>8} {:>10} {:>9} {:>8}", "source", "taps", "mana", "mana/tap", "waste%");
+    let mut rows: Vec<(&String, &u64)> = acc.src_taps.iter().collect();
+    rows.sort_by(|a, b| b.1.cmp(a.1));
+    for (name, taps) in rows {
+        let mana = *acc.src_produced.get(name).unwrap_or(&0);
+        let waste = *acc.src_waste_taps.get(name).unwrap_or(&0);
+        println!(
+            "  {:<26} {:>8} {:>10} {:>9.2} {:>7.1}%",
+            name, taps, mana,
+            mana as f64 / *taps as f64,
+            100.0 * waste as f64 / *taps as f64
+        );
+    }
+    println!("  ------------------------------------------------------------------");
+    println!("  ONE-SHOT FAST MANA (fires = sac'd for mana; waste = fired on a turn ending with mana left)");
+    println!("  {:<26} {:>8} {:>10} {:>8}", "source", "fires", "wasteful", "waste%");
+    let mut osr: Vec<(&String, &u64)> = acc.oneshot_fires.iter().collect();
+    osr.sort_by(|a, b| b.1.cmp(a.1));
+    for (name, fires) in osr {
+        let w = *acc.oneshot_waste_fires.get(name).unwrap_or(&0);
+        println!(
+            "  {:<26} {:>8} {:>10} {:>7.1}%",
+            name, fires, w, 100.0 * w as f64 / *fires as f64
+        );
+    }
+    println!("  ------------------------------------------------------------------");
+    println!(
+        "  WHY UNSPENT — turns 2-6 ending with mana floating: {} turns, avg leftover {:.2} mana",
+        acc.early_waste_turns,
+        if acc.early_waste_turns > 0 { acc.early_waste_mana as f64 / acc.early_waste_turns as f64 } else { 0.0 }
+    );
+    println!("  non-land cards stuck in hand on those turns (afford% = leftover could pay its cost):");
+    println!("  {:<26} {:>8} {:>9} {:>9}", "card", "in-hand", "afford", "afford%");
+    let mut hrows: Vec<(&String, &u64)> = acc.hand_card.iter().collect();
+    hrows.sort_by(|a, b| b.1.cmp(a.1));
+    for (name, cnt) in hrows.iter().take(30) {
+        let aff = *acc.hand_card_affordable.get(*name).unwrap_or(&0);
+        println!(
+            "  {:<26} {:>8} {:>9} {:>8.1}%",
+            name, cnt, aff, 100.0 * aff as f64 / **cnt as f64
+        );
+    }
+    println!("  {:.1}s total, {:.4}s/game", elapsed, elapsed / acc.games as f64);
 }
 
 fn main() {
@@ -302,13 +429,157 @@ fn main() {
                 println!("{c} {:.4}", loops::develop_score(&s, &reg, c));
             }
         }
+        "whatif" => {
+            // Diagnostic: ENTIRE non-commander deck in hand, N Krark bodies out, varying starting
+            // floating mana. Asks the real win-search (solve) whether it can find a storm/payoff kill.
+            // Tests the hypothesis that "drawing the deck" wins for Oracle (empty library) but NOT for
+            // storm payoffs (which still need MANA to cast the chain — drawing != casting).
+            use game_state::{krark_body, GameState};
+            use rand::SeedableRng;
+            // --no-combo: forbid the Dualcaster/Twinflame infinite, forcing a STORM win.
+            let no_combo = args.iter().any(|a| a == "--no-combo");
+            let combo_pieces = ["Dualcaster Mage", "Twinflame", "Heat Shimmer"];
+            let deck: Vec<String> = build_deck(&reg, 8, 11)
+                .into_iter()
+                .filter(|c| !no_combo || !combo_pieces.contains(&c.as_str()))
+                .collect();
+            let det = planner::DeterministicKillSearch::default();
+            let prob = planner::ProbabilisticPlanner { mc_sims: 400, max_first: 3, rollout_steps: 80, ..Default::default() };
+            println!("WHATIF{}: entire deck in hand ({} cards incl ~28 lands), EMPTY library, opp 160 life, opp hands [4,4,4].",
+                if no_combo { " [no Dualflame combo]" } else { "" }, deck.len());
+            println!("p_win that the win-search finds a kill, by #Krark bodies x starting floating mana (R):\n");
+            for bodies in [1, 2, 3, 4] {
+                for mana in [0, 4, 8, 15] {
+                    let mut bf = vec![krark_body("Krark, the Thumbless", None, false)];
+                    for _ in 1..bodies {
+                        bf.push(krark_body("Sakashima of a Thousand Faces", Some("Krark, the Thumbless"), false));
+                    }
+                    let mut s = GameState {
+                        library: Vec::new(),
+                        hand: deck.clone(),
+                        battlefield: bf,
+                        opponent_life: vec![160],
+                        opponent_hand: vec![4, 4, 4],
+                        ..Default::default()
+                    };
+                    s.mana.add("R", mana);
+                    let mut rng = rand::rngs::StdRng::seed_from_u64(1);
+                    let line = planner::solve(&s, &reg, loops::DEV_PAYOFFS, &det, &prob, &mut rng);
+                    let detail: String = line.detail.chars().take(70).collect();
+                    println!("  bodies={bodies}  startR={mana:>2}:  p_win={:.3}  [{}]  {}", line.p_win, line.kind, detail);
+                }
+            }
+            // Scenario B: the FAST MANA DEPLOYED on the battlefield (untapped), 0 floating, 2 Krark,
+            // rest of the gas in hand. tap_out the rocks, then solve — does the fast mana itself carry
+            // the storm kill? (This is what cast_permanents/ramp do for real before the go-off.)
+            use game_state::Permanent;
+            let rocks = [
+                "Sol Ring", "Mox Amber", "Chrome Mox", "Mox Diamond", "Mana Vault",
+                "Arcane Signet", "Talisman of Creativity", "Lotus Petal", "Relic of Legends",
+            ];
+            let mut bf = vec![
+                krark_body("Krark, the Thumbless", None, false),
+                krark_body("Sakashima of a Thousand Faces", Some("Krark, the Thumbless"), false),
+            ];
+            for r in rocks {
+                bf.push(Permanent { summoning_sick: false, ..Permanent::new(r) });
+            }
+            // Krark's Thumb deployed too — the reliable return that lets a storm loop sustain.
+            bf.push(Permanent { summoning_sick: false, ..Permanent::new("Krark's Thumb") });
+            let hand: Vec<String> = deck.iter()
+                .filter(|c| !rocks.contains(&c.as_str()) && c.as_str() != "Krark's Thumb")
+                .cloned().collect();
+            let s = GameState {
+                library: Vec::new(),
+                hand,
+                battlefield: bf,
+                opponent_life: vec![160],
+                opponent_hand: vec![4, 4, 4],
+                ..Default::default()
+            };
+            let tapped = planner::tap_out(&s);
+            let floating: i64 = tapped.mana.total();
+            let mut rng = rand::rngs::StdRng::seed_from_u64(1);
+            let line = planner::solve(&tapped, &reg, loops::DEV_PAYOFFS, &det, &prob, &mut rng);
+            println!("\nScenario B: 9 fast-mana rocks + Krark's Thumb DEPLOYED, 0 floating, 2 Krark, rest of gas in hand.");
+            println!("  tap_out produced {floating} floating mana from the rocks.");
+            println!("  p_win={:.3}  [{}]  {}", line.p_win, line.kind, line.detail);
+        }
+        "goff-trace" => {
+            // Instrumentation: run the ADAPTIVE rollout (rollout_from) vs the dumb single-card LOOP
+            // (estimate_p_lethal) on a realistic go-off-entry state, with the adaptive rollout tracing
+            // its per-step option scores. Shows where the greedy policy diverges from the loop.
+            use game_state::{krark_body, GameState, Permanent};
+            use rand::SeedableRng;
+            let mana: i64 = arg_val(&args, "--mana").and_then(|v| v.parse().ok()).unwrap_or(6);
+            let mut library = vec!["Island".to_string(); 22];
+            for c in ["Ponder", "Opt", "Consider", "Serum Visions", "Mountain", "Brainstorm", "Strike It Rich", "Rite of Flame"] {
+                library.push(c.to_string());
+            }
+            let mut state = GameState {
+                library,
+                hand: vec![
+                    "Jeska's Will".into(), "Rite of Flame".into(), "Pyretic Ritual".into(),
+                    "Desperate Ritual".into(), "Grapeshot".into(), "Brain Freeze".into(),
+                    "Ponder".into(), "Brainstorm".into(), "Serum Visions".into(),
+                    "Frantic Search".into(), "Strike It Rich".into(),
+                ],
+                battlefield: {
+                    let mut bf = vec![
+                        krark_body("Krark, the Thumbless", None, false),
+                        krark_body("Sakashima of a Thousand Faces", Some("Krark, the Thumbless"), false),
+                        Permanent { summoning_sick: false, ..Permanent::new("Storm-Kiln Artist") },
+                    ];
+                    if args.iter().any(|a| a == "--thumb") {
+                        bf.push(Permanent { summoning_sick: false, ..Permanent::new("Krark's Thumb") });
+                    }
+                    bf
+                },
+                opponent_life: vec![160],
+                opponent_hand: vec![4, 4, 4],
+                ..Default::default()
+            };
+            state.mana.add("R", mana.min(4));
+            state.mana.add("*", (mana - 4).max(0));
+            let payoffs = loops::DEV_PAYOFFS;
+            let need_life: i64 = state.opponent_life.iter().sum();
+            println!("=== GO-OFF ENTRY: bodies={} flips/cast={} floating_mana={} storm={} opp_life={} ===",
+                state.krark_bodies(&reg), state.flips_per_cast(&reg), state.mana.total(), state.storm_count, need_life);
+            let mut cands = loops::develop_candidates(&state, &reg);
+            cands.sort_by(|a, b| loops::develop_score(&state, &reg, &b.0)
+                .partial_cmp(&loops::develop_score(&state, &reg, &a.0)).unwrap_or(std::cmp::Ordering::Equal));
+            println!("  develop menu: {}", cands.iter().take(10)
+                .map(|(c, _)| format!("{c}({:+.2})", loops::develop_score(&state, &reg, c))).collect::<Vec<_>>().join(", "));
+
+            println!("\n=== ADAPTIVE rollout_from — one traced run (greedy best-score each step) ===");
+            let mut rng = rand::rngs::StdRng::seed_from_u64(7);
+            let res = loops::rollout_from(state.clone(), &reg, payoffs, need_life, &mut rng, 60, true);
+            println!("  => {:?}", res);
+            let n = 400i64;
+            let awins = (0..n).filter(|i| {
+                let mut r = rand::rngs::StdRng::seed_from_u64(1000 + *i as u64);
+                loops::rollout_from(state.clone(), &reg, payoffs, need_life, &mut r, 60, false).is_some()
+            }).count();
+            println!("  ADAPTIVE p_win over {n} runs: {:.3}", awins as f64 / n as f64);
+
+            println!("\n=== LOOP estimate_p_lethal — single-card spam, per card ===");
+            let mut best = (String::new(), 0.0f64);
+            for card in ["Grapeshot", "Brain Freeze", "Jeska's Will", "Rite of Flame", "Pyretic Ritual", "Ponder", "Brainstorm"] {
+                if !state.hand.iter().any(|c| c == card) { continue; }
+                let mut r = rand::rngs::StdRng::seed_from_u64(55);
+                let est = loops::estimate_p_lethal(&state, &reg, card, payoffs, n, 80, &mut r, None);
+                println!("  loop {card:<16}: p_win={:.3}", est.p_win);
+                if est.p_win > best.1 { best = (card.to_string(), est.p_win); }
+            }
+            println!("  BEST LOOP: {} ({:.3})", best.0, best.1);
+        }
         "bench" => {
             // Deterministic, single-threaded compute benchmark (no rayon scheduling noise):
             // run a fixed (seed,trial) workload and report pure wall time. Used to measure
             // optimization deltas more stably than the parallel sweep.
             let games: u64 = arg_val(&args, "--games").and_then(|v| v.parse().ok()).unwrap_or(12);
             let trials: u64 = arg_val(&args, "--flip-trials").and_then(|v| v.parse().ok()).unwrap_or(5);
-            let deck = build_deck(&reg, 8, 12);
+            let deck = build_deck(&reg, 8, 11);
             let t0 = std::time::Instant::now();
             let mut wins = 0u64;
             let mut total = 0u64;
@@ -327,6 +598,11 @@ fn main() {
         "sweep" => {
             sim::MULL_CFG.set(parse_mull_cfg(&args)).ok();
             sim::DEV_CAP.set(arg_val(&args, "--dev-cap").and_then(|v| v.parse().ok()).unwrap_or(12)).ok();
+            sim::ROLLOUT_STEPS.set(arg_val(&args, "--rollout-steps").and_then(|v| v.parse().ok()).unwrap_or(20)).ok();
+            loops::AGGRO_CANTRIPS.set(!args.iter().any(|a| a == "--no-aggro-cantrips")).ok();
+            loops::PRE_KRARK_DIG.set(args.iter().any(|a| a == "--precrark-dig")).ok();
+            sim::SMART_LAND.set(!args.iter().any(|a| a == "--no-smart-land")).ok();
+            sim::ADAPTIVE_GATE.set(args.iter().any(|a| a == "--adaptive-gate")).ok();
             let games: u64 = arg_val(&args, "--games").and_then(|v| v.parse().ok()).unwrap_or(30);
             let trials: u64 = arg_val(&args, "--flip-trials").and_then(|v| v.parse().ok()).unwrap_or(10);
             let max_turns: i64 = arg_val(&args, "--max-turns").and_then(|v| v.parse().ok()).unwrap_or(18);
@@ -346,14 +622,31 @@ fn main() {
             let adds = arg_vals(&args, "--add");
             run_sweep(&reg, games, trials, max_turns, win_threshold, seed_base, fizzle_fatal, send_gate, fast_mull, rock_cutoff, check_first, cuts, adds);
         }
+        "audit" => {
+            sim::MULL_CFG.set(parse_mull_cfg(&args)).ok();
+            sim::DEV_CAP.set(arg_val(&args, "--dev-cap").and_then(|v| v.parse().ok()).unwrap_or(12)).ok();
+            sim::ROLLOUT_STEPS.set(arg_val(&args, "--rollout-steps").and_then(|v| v.parse().ok()).unwrap_or(20)).ok();
+            loops::AGGRO_CANTRIPS.set(!args.iter().any(|a| a == "--no-aggro-cantrips")).ok();
+            loops::PRE_KRARK_DIG.set(args.iter().any(|a| a == "--precrark-dig")).ok();
+            let games: u64 = arg_val(&args, "--games").and_then(|v| v.parse().ok()).unwrap_or(300);
+            let trials: u64 = arg_val(&args, "--flip-trials").and_then(|v| v.parse().ok()).unwrap_or(8);
+            let max_turns: i64 = arg_val(&args, "--max-turns").and_then(|v| v.parse().ok()).unwrap_or(18);
+            let seed_base: u64 = arg_val(&args, "--seed").and_then(|v| v.parse().ok()).unwrap_or(0);
+            let send_gate: f64 = arg_val(&args, "--send-gate").and_then(|v| v.parse().ok()).unwrap_or(0.20);
+            let fast_mull = !args.iter().any(|a| a == "--no-fast-mull");
+            let cuts = arg_vals(&args, "--cut");
+            let adds = arg_vals(&args, "--add");
+            run_audit(&reg, games, trials, max_turns, seed_base, send_gate, fast_mull, cuts, adds);
+        }
         "diag" => {
             sim::MULL_CFG.set(parse_mull_cfg(&args)).ok();
             sim::DEV_CAP.set(arg_val(&args, "--dev-cap").and_then(|v| v.parse().ok()).unwrap_or(12)).ok();
+            sim::ROLLOUT_STEPS.set(arg_val(&args, "--rollout-steps").and_then(|v| v.parse().ok()).unwrap_or(20)).ok();
             // Verbose single-game log: `krarksim diag --seed N [--luck L] [--max-turns T]`.
             let seed: u64 = arg_val(&args, "--seed").and_then(|v| v.parse().ok()).unwrap_or(0);
             let luck: u64 = arg_val(&args, "--luck").and_then(|v| v.parse().ok()).unwrap_or(0);
             let max_turns: i64 = arg_val(&args, "--max-turns").and_then(|v| v.parse().ok()).unwrap_or(20);
-            let deck = build_deck(&reg, 8, 12);
+            let deck = build_deck(&reg, 8, 11);
             let fast_mull = !args.iter().any(|a| a == "--no-fast-mull");
             let mut game = sim::SimGame::new(&reg, &deck, seed, 0.95, fast_mull);
             game.set_dev_seed(seed.wrapping_mul(1_000_003).wrapping_add(luck));

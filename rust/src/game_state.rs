@@ -435,6 +435,12 @@ impl GameState {
         if engine.is_shaman_or_wizard() {
             m += self.count_functioning("Harmonic Prodigy");
         }
+        // Roaming Throne (chose Wizard) doubles triggered abilities of your other Wizard creatures —
+        // Archmage's draw, Vivi's damage, Veyran's magecraft, etc. (Krark's flip is doubled via the
+        // separate trigger_doublers/flips_per_cast path, so it isn't double-counted here.)
+        if engine.subtypes.iter().any(|s| s == "Wizard") {
+            m += self.count_functioning("Roaming Throne");
+        }
         m
     }
 
