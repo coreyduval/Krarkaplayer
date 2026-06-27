@@ -1,8 +1,9 @@
 # MTG Rules Reference — Krark/Sakashima cEDH Simulator
 
 This document exists so the simulator's AI layer (Claude) doesn't misread game
-states or flag valid lines as bugs. Read this before touching `sim.py`,
-`planner.py`, or any win-detection logic.
+states or flag valid lines as bugs. Read this before touching `sim.rs`,
+`planner.rs`, or any win-detection logic. (The engine is Rust; the `src/*.rs` files
+below were ported from the original `*.py` modules.)
 
 ---
 
@@ -217,6 +218,11 @@ No flips required — works with zero Krark bodies.
 - **Defense Grid** adds +{3} to the pilot's own spells during opponents' turns.
 - **Library** = the actual shuffled decklist; drawing pulls real cards.
 - **Copies are not cast** — Krark copies never increment storm or retrigger Krark.
+- **Legend rule (partial model)** — clone bodies (Glasspool / Phantasmal) stack Krark freely,
+  assuming the Sakashima break is present. The Twinflame / Heat Shimmer token line is stricter:
+  it checks `has_sakashima_break()` (a real Sakashima on the battlefield) before copying a
+  *legendary* creature; without it, the duplicate would die to the legend rule, so it copies a
+  non-legendary engine (Tavern Scoundrel / Storm-Kiln / Archmage) instead.
 - **An infinite loop is not a win without a payoff** — the engine requires an
   accessible terminal win condition (Thoracle, Grapeshot, Brain Freeze, combat).
 
@@ -233,8 +239,8 @@ This is the most important thing to internalize. With 2+ Krark bodies on board:
 5. Mana engines (Birgi, Storm-Kiln treasures) replenish {R}/{*}.
 6. Repeat: cast Brainstorm again from hand.
 
-This is not a bug. This is the deck. The engine in `resolver.py` models it with
+This is not a bug. This is the deck. The engine in `resolver.rs` models it with
 `p_return = 1 − p^F` (probability original returns to hand) and the DFS in
-`planner.py` explores paths where this recursion continues until a payoff is
+`planner.rs` explores paths where this recursion continues until a payoff is
 reachable. A "long line" with 11+ casts of the same spell is a legitimate
 runaway chain where the original kept coming back.

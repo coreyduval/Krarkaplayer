@@ -27,6 +27,9 @@ Binary: `rust/target/release/krarksim(.exe)`.
   taps, mana produced vs wasted, one-shot mis-fires, affordability of hand cards).
 - `krarksim diag --seed N [--luck L] [--max-turns T]` — verbose single-game log
   (per turn: DRAW / DUG / TUTOR / EXILE / PITCH / DISCARD / CAST / CHECK).
+- `python diag_table.py N [extra diag flags]` (run from `rust/`) — the **preferred** way to show a
+  game: parses the diag into a clean per-turn Markdown table (Drew / Land / Plays with `xN`
+  attempts + `x/y` flips), the win line, and the go-off flip sequence. Handles `[KILL]` + `[P(win)]`.
 
 **Convention:** "run a sim" = `sweep --flip-trials 8`; report win% over the 8 flips.
 
