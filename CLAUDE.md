@@ -31,7 +31,11 @@ Binary: `rust/target/release/krarksim(.exe)`.
   game: parses the diag into a clean per-turn Markdown table (Drew / Land / Plays with `xN`
   attempts + `x/y` flips), the win line, and the go-off flip sequence. Handles `[KILL]` + `[P(win)]`.
 
-**Convention:** "run a sim" = `sweep --flip-trials 8`; report win% over the 8 flips.
+**Convention:**
+- "run a sim" = **one-seed verbose output** — a single `diag --seed N` game (preferably via
+  `python diag_table.py N`); show the play-by-play, not aggregate stats.
+- "run a sweep" = **600 random seeds × 8 flips** by default (`sweep --games 600 --flip-trials 8`);
+  report win% / early-win / TTK over the batch.
 
 ## Metric framing (speed-first)
 cEDH games are decided early, so the default `--max-turns 12` caps compute at turn 12 and the

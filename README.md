@@ -46,15 +46,18 @@ EXE=./target/release/krarksim                 # .exe on Windows
 
 $EXE                                          # dump the deck + card registry
 $EXE selftest                                 # engine self-tests (prints "passed")
-$EXE sweep --flip-trials 8                    # the standard sim: win% over 8 flips
-$EXE sweep --games 1200 --flip-trials 8       # full convergence (~9–18 min)
-$EXE audit --games 300                        # per-source utilization / waste report
-$EXE diag --seed 11                           # verbose play-by-play of one game
+$EXE diag --seed 11                           # "run a sim": verbose play-by-play of one game
 python diag_table.py 11                        # same game as a clean per-turn table
                                               #   (Drew / Land / Plays with xN attempts + x/y flips)
+$EXE sweep --games 600 --flip-trials 8        # "run a sweep": 600 seeds x 8 flips (the standard batch)
+$EXE sweep --games 1200 --flip-trials 8       # full convergence (~9–18 min)
+$EXE audit --games 300                        # per-source utilization / waste report
 ```
 
-Convention: **"run a sim" = `sweep --flip-trials 8`**, reporting win% over the 8 flips.
+Convention:
+- **"run a sim" = one-seed verbose output** (`diag --seed N`, preferably `python diag_table.py N`).
+- **"run a sweep" = 600 random seeds × 8 flips** (`sweep --games 600 --flip-trials 8`), reporting
+  win% / early-win / TTK over the batch.
 
 ### Useful sweep flags
 
