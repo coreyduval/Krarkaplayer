@@ -1,7 +1,7 @@
 # Krarkashima — Krark / Sakashima cEDH combo simulator
 
 A Rust engine that **goldfishes** a Krark, the Thumbless + Sakashima of a Thousand Faces
-Izzet (UR) coin-flip storm combo deck and measures how reliably — and how fast — it wins.
+Izzet (UR) coin-flip storm combo deck and measures how reliably — and how **fast** — it wins.
 
 It shuffles the deck thousands of times, pilots each game with a planner that finds
 deterministic kills and high-probability go-offs, and reports the win rate, the turn it
@@ -13,13 +13,18 @@ wins, and which line won.
 
 ## Results
 
-Current model (seat-randomized, all fixes), over 1200 seeds × 8 flips:
+cEDH games are decided by the early turns, so the model is **speed-first**: sims cap at
+**turn 12** (`--max-turns 12`) and the headline metric is how often — and how early — the
+deck wins by then. Latest converged baseline, 1200 seeds × 8 flips:
 
 | Metric | Value |
 |---|---|
-| **Win rate** | **~99.2%** |
-| Win-turn | mean ~7.9, median 7, fastest 3 |
-| Win conditions | Thassa's Oracle deck-out ~42% · Dualcaster combat ~32% · Urabrask/Vivi burn ~19% · Brain Freeze mill ~5% · Grapeshot |
+| **Win by turn 12** | **~96%** (T6 53% · T8 83% · T10 93%) |
+| Win-turn | mean ~6.6, median **6**, fastest 2 |
+| **Early-win score** (geo, T2–8, earlier = better) | **~1.31** |
+| TTK (non-wins penalized at turn 15) | ~6.9 |
+| Win conditions | Dualcaster combat ~46% · Urabrask/Vivi burn ~25% · Brain Freeze mill ~17% · Grapeshot storm-burn ~11% |
+| Engines | Storm-Kiln Artist ~37% · ritual/Jeska burst ~21% · Vivi/Urabrask ~12% · Archmage ~10% · Tavern Scoundrel ~10% · Birgi ~10% |
 
 ## Build
 
@@ -27,7 +32,7 @@ Requires a Rust toolchain (`cargo`). From the repo root:
 
 ```bash
 cd rust
-python run.py build          # wraps `cargo build --release`
+python run.py build          # wraps `cargo build --release` (puts cargo on PATH)
 #  or:  cargo build --release
 ```
 
@@ -40,48 +45,59 @@ cd rust
 EXE=./target/release/krarksim                 # .exe on Windows
 
 $EXE                                          # dump the deck + card registry
-$EXE selftest                                 # engine self-tests (prints 4x "passed")
+$EXE selftest                                 # engine self-tests (prints "passed")
 $EXE sweep --flip-trials 8                    # the standard sim: win% over 8 flips
-$EXE sweep --games 1200 --flip-trials 8       # full convergence (~12 min)
+$EXE sweep --games 1200 --flip-trials 8       # full convergence (~9–18 min)
+$EXE audit --games 300                        # per-source utilization / waste report
 $EXE diag --seed 11                           # verbose play-by-play of one game
 ```
 
+Convention: **"run a sim" = `sweep --flip-trials 8`**, reporting win% over the 8 flips.
+
 ### Useful sweep flags
 
-| Flag | Meaning |
-|---|---|
-| `--games N` | number of distinct shuffles / openings |
-| `--flip-trials N` | go-off coin-flip re-rolls per opening |
-| `--seed N` | base RNG seed |
-| `--cut "Card Name"` | remove one copy of a card (leave-one-out analysis) |
-| `--keep-gate fast\|mana\|none` | mulligan first-hand gate (default `none`) |
-| `--keep-min-lands N` | minimum lands in a keepable hand |
-| `--mull-depth N` | how deep to mulligan |
-| `--max-turns N` | turn cap before a game counts as a brick |
+| Flag | Meaning | Default |
+|---|---|---|
+| `--games N` | number of distinct shuffles / openings | 30 |
+| `--flip-trials N` | go-off coin-flip re-rolls per opening | 10 |
+| `--max-turns N` | turn cap; past it a game counts as a non-win | 12 |
+| `--seed N` | base RNG seed | 0 |
+| `--cut "Card"` | remove one copy (leave-one-out); repeatable | — |
+| `--add "Card"` | add one copy from the registry bench; repeatable | — |
+| `--send-gate F` | commit gate for non-fatal go-offs (send when P ≥ F) | 0.20 |
+| `--win-threshold F` | P(win) the planner treats as lethal | 0.95 |
+| `--keep-gate fast\|mana\|none` | mulligan first-hand gate | `fast` |
+| `--keep-min-lands N` / `--mull-depth N` | min lands to keep / how deep to mulligan | 2 / 2 |
+| `--no-fast-mull` | disable mulligan-for-speed (also sets gate `none`) | off (fast-mull on) |
+| `--no-smart-land` | disable color-aware land sequencing | off (smart on) |
+| `--no-aggro-cantrips` | stop casting cantrips just for card flow | off (aggro on) |
+| `--no-jeska-boost` | drop Jeska's Will's elevated tutor priority | off (boost on) |
+| `--dev-cap N` · `--rollout-steps N` | develop-loop cap · go-off rollout depth | 12 · 20 |
+
+A land↔spell swap keeps the deck at 98: `--cut "Mountain" --add "Preordain"`.
 
 ## Project layout
 
 ```
 rust/src/
-  main.rs        CLI + modes (sweep / diag / selftest / dump)
-  sim.rs         game loop: mulligan, turns, deploy, develop
-  planner.rs     deterministic kill search + probabilistic planner + mana
-  loops.rs       go-off detection, develop scoring, loop / runaway analysis
-  resolver.rs    cast resolution: Krark flips, copies, storm, magecraft
+  main.rs        CLI + modes (sweep / audit / diag / selftest / dump), build_deck
+  sim.rs         game loop: mulligan, turns, ramp/develop, deploy, tap, source utilization
+  planner.rs     deterministic kill search + probabilistic planner + mana tap-out
+  loops.rs       go-off detection, develop scoring, loop / runaway analysis, magecraft fuel
+  resolver.rs    cast resolution: Krark flips, copies, storm, magecraft, ETB tutors
   wishlist.rs    card valuation (tutor / keep / discard priority)
-  cards.rs       card registry + data
-  game_state.rs  GameState, ManaPool, board helpers
-  tables.rs      mana-source table
+  cards.rs       CardDef overlay (type, subtypes, per-cast triggers)
+  game_state.rs  GameState, ManaPool (strict colors), legendary helpers
+  tables.rs      mana-source table (mode + produced), life-per-tap
   win.rs         win predicate
-overnight/         analysis logs from prior runs
+  tests.rs       selftest scenarios
+krarkashima.txt    card registry (name | mana_cost | mana_value | rules_text), read at runtime
+overnight/         analysis logs / LOO CSVs from prior runs
 original decklist/ the source decklist
 ```
-
-## For AI agents
-
-See **[CLAUDE.md](CLAUDE.md)** — an operational guide (build/run commands, model
-assumptions, source map, conventions) aimed at AI coding assistants.
 
 ## Status
 
 Rust is the canonical and only engine; the old Python port has been removed.
+For agent-facing operational notes (model assumptions, source map, conventions),
+see **[CLAUDE.md](CLAUDE.md)**.

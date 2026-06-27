@@ -11,6 +11,14 @@ pub const MAX_FLIPS: i64 = 40;
 const QUASI_BODY_CAP: i64 = 4;
 const QUASI_TOKEN_CAP: i64 = 5;
 
+/// A/B toggle (default ON): model Twinflame / Heat Shimmer making temporary token copies to bolster a
+/// go-off (more Krark flips / a deepened engine for the turn). `--no-shimmer-tokens` recovers the old
+/// "shimmers are the Dualcaster combo only" behavior.
+pub static SHIMMER_TOKENS: std::sync::OnceLock<bool> = std::sync::OnceLock::new();
+pub fn shimmer_tokens_on() -> bool {
+    *SHIMMER_TOKENS.get().unwrap_or(&true)
+}
+
 pub const STORM_SPELLS: &[&str] = &["Grapeshot", "Brain Freeze", "Flusterstorm"];
 const DAMAGE_SPELLS: &[&str] = &["Grapeshot", "Gut Shot"];
 
@@ -357,6 +365,70 @@ pub fn quasi_target(state: &GameState, reg: &Registry) -> Option<String> {
         return Some("Krark, the Thumbless".to_string());
     }
     None
+}
+
+/// Twinflame / Heat Shimmer target: copy the creature that best shores up the go-off's WEAKEST link.
+/// Priority of weaknesses: (1) no payoff in reach -> copy a tutor body to dig one up; (2) flips ->
+/// copy Krark (more bodies multiply every copy/storm — the dominant lever) up to the body cap; (3)
+/// flips saturated -> deepen the strongest per-cast value engine (treasure/draw/mana). Tokens are
+/// temporary (sac at end of turn), so this only ever matters on the turn you go off.
+pub fn shimmer_target(state: &GameState, reg: &Registry) -> Option<String> {
+    if state.battlefield.iter().filter(|p| p.is_token).count() as i64 >= QUASI_TOKEN_CAP {
+        return None;
+    }
+    let on_bf: Vec<&str> = state.battlefield.iter().map(|p| p.effective_name()).collect();
+    let payoff_acc = ["Grapeshot", "Thassa's Oracle", "Brain Freeze"].iter().any(|pf| {
+        state.hand.iter().any(|c| c == pf)
+            || state.graveyard.iter().any(|c| c == pf)
+            || state.has_permanent(pf)
+    });
+    // Copying a LEGENDARY creature only sticks if a real Sakashima (the legend-rule break) is out;
+    // otherwise the token dies to the legend rule before it can flip / trigger. Non-legendary engines
+    // (Storm-Kiln / Tavern / Archmage / Harmonic) persist regardless — so they're the line when you
+    // have Krark + an engine but no Sakashima yet (common in the early-win window).
+    let break_present = state.has_sakashima_break();
+    let copyable = |name: &str| break_present || !crate::game_state::is_legendary_creature_name(name);
+
+    // (1) no payoff in reach -> copy a tutor body (both non-legendary) to dig one up.
+    if !payoff_acc {
+        for t in ["Imperial Recruiter", "Spellseeker"] {
+            if on_bf.contains(&t) && copyable(t) {
+                return Some(t.to_string());
+            }
+        }
+    }
+    // (2) flips: a second Krark multiplies every copy/storm — the dominant lever, but legend-gated.
+    if break_present
+        && on_bf.contains(&"Krark, the Thumbless")
+        && state.krark_bodies(reg) < QUASI_BODY_CAP
+    {
+        return Some("Krark, the Thumbless".to_string());
+    }
+    // (3) deepen the best per-cast engine you can LEGALLY copy — non-legendary first (always sticks),
+    // then legendary engines if the break is up.
+    for e in [
+        "Storm-Kiln Artist", "Tavern Scoundrel", "Archmage Emeritus", "Harmonic Prodigy",
+        "Birgi, God of Storytelling", "Veyran, Voice of Duality",
+    ] {
+        if on_bf.contains(&e) && copyable(e) {
+            return Some(e.to_string());
+        }
+    }
+    None
+}
+
+/// develop_score value of a Twinflame / Heat Shimmer cast — mirrors `quasi_value` on the chosen
+/// bolster target (a Krark body is worth more than a copied engine). The mana cost is handled by the
+/// rollout's mana accounting, like every other develop_score special-case.
+pub fn shimmer_value(state: &GameState, reg: &Registry, resolutions: f64) -> f64 {
+    if !shimmer_tokens_on() {
+        return -1.0;
+    }
+    match shimmer_target(state, reg) {
+        None => -1.0,
+        Some(t) if t == "Krark, the Thumbless" => resolutions * 3.0,
+        Some(_) => resolutions * 2.0,
+    }
 }
 
 // --------------------------------------------------------------------------- //
@@ -728,6 +800,34 @@ fn run_effect<R: Rng + ?Sized>(
                     let mut p = Permanent::new(&tgt);
                     p.is_token = true;
                     p.summoning_sick = true;
+                    state.battlefield.push(p);
+                    apply_etb(state, reg, &tgt);
+                }
+            }
+            true
+        }
+        "Twinflame" | "Heat Shimmer" if shimmer_tokens_on() => {
+            // Hasty token copies (sac'd at end of turn) of the creature that best shores up the
+            // go-off — see `shimmer_target`. `n` = original + Krark copies of this spell; each makes
+            // one token, bounded by the body/token caps so the count can't run away. Marked
+            // `temporary` so the develop copy-back drops them and they never persist past this turn.
+            for _ in 0..n {
+                let tgt = match shimmer_target(state, reg) {
+                    Some(t) => t,
+                    None => break,
+                };
+                if tgt == "Krark, the Thumbless" {
+                    // Only reached when has_sakashima_break() is true (gated in shimmer_target), so a
+                    // second Krark is legal. Name it Krark — NOT the Sakashima-token trick — so the
+                    // token never itself counts as the legend-rule break.
+                    let mut p = krark_body("Krark, the Thumbless", None, true);
+                    p.temporary = true;
+                    state.battlefield.push(p);
+                } else {
+                    let mut p = Permanent::new(&tgt);
+                    p.is_token = true;
+                    p.summoning_sick = true;
+                    p.temporary = true;
                     state.battlefield.push(p);
                     apply_etb(state, reg, &tgt);
                 }

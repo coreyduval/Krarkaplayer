@@ -43,7 +43,13 @@ fn build_deck(reg: &Registry, islands: u32, mountains: u32) -> Vec<String> {
     // Thassa's Oracle: cut but kept for win.rs CardDef. Crimson Wisps / Renegade Tactics / Accelerate:
     // red 1-mana cantrips kept in the registry for A/B testing (added to a deck via --add), not in the
     // default list.
-    const DECK_EXCLUDE: [&str; 4] = ["Thassa's Oracle", "Crimson Wisps", "Renegade Tactics", "Accelerate"];
+    // Extra fetches (Misty Rainforest..Flooded Strand) kept in the registry for --add A/B testing of
+    // higher fetch counts; not in the default 3-fetch deck.
+    const DECK_EXCLUDE: [&str; 11] = [
+        "Thassa's Oracle", "Crimson Wisps", "Renegade Tactics", "Accelerate",
+        "Misty Rainforest", "Arid Mesa", "Wooded Foothills", "Flooded Strand",
+        "The One Ring", "Electro, Assaulting Battery", "Grim Monolith",
+    ];
     let mut deck: Vec<String> = reg
         .ordered_names()
         .iter()
@@ -609,6 +615,8 @@ fn main() {
             sim::SMART_LAND.set(!args.iter().any(|a| a == "--no-smart-land")).ok();
             sim::ADAPTIVE_GATE.set(args.iter().any(|a| a == "--adaptive-gate")).ok();
             wishlist::JESKA_BOOST.set(!args.iter().any(|a| a == "--no-jeska-boost")).ok();
+            wishlist::TUTOR_CREATURE_KEEP.set(args.iter().any(|a| a == "--tutor-keep")).ok();
+            resolver::SHIMMER_TOKENS.set(!args.iter().any(|a| a == "--no-shimmer-tokens")).ok();
             let games: u64 = arg_val(&args, "--games").and_then(|v| v.parse().ok()).unwrap_or(30);
             let trials: u64 = arg_val(&args, "--flip-trials").and_then(|v| v.parse().ok()).unwrap_or(10);
             // cEDH default: games are decided by ~turn 12, so cap compute there (faster; the slow tail
@@ -636,6 +644,7 @@ fn main() {
             sim::ROLLOUT_STEPS.set(arg_val(&args, "--rollout-steps").and_then(|v| v.parse().ok()).unwrap_or(20)).ok();
             loops::AGGRO_CANTRIPS.set(!args.iter().any(|a| a == "--no-aggro-cantrips")).ok();
             loops::PRE_KRARK_DIG.set(args.iter().any(|a| a == "--precrark-dig")).ok();
+            resolver::SHIMMER_TOKENS.set(!args.iter().any(|a| a == "--no-shimmer-tokens")).ok();
             let games: u64 = arg_val(&args, "--games").and_then(|v| v.parse().ok()).unwrap_or(300);
             let trials: u64 = arg_val(&args, "--flip-trials").and_then(|v| v.parse().ok()).unwrap_or(8);
             let max_turns: i64 = arg_val(&args, "--max-turns").and_then(|v| v.parse().ok()).unwrap_or(12);

@@ -43,6 +43,7 @@ pub fn mana_source(name: &str) -> Option<(SrcMode, ManaCost)> {
         "Steam Vents" => (SrcMode::Tap, mk(&[("*", 1)])),
         "Mana Confluence" => (SrcMode::Tap, mk(&[("*", 1)])),
         "Mana Vault" => (SrcMode::Tap, mk(&[("C", 3)])),
+        "Grim Monolith" => (SrcMode::Tap, mk(&[("C", 3)])),
         "Mox Amber" => (SrcMode::Tap, mk(&[("*", 1)])),
         "Relic of Legends" => (SrcMode::Tap, mk(&[("*", 1)])),
         _ => return None,

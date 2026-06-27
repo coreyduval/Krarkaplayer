@@ -11,6 +11,14 @@ fn jeska_boost() -> bool {
     *JESKA_BOOST.get().unwrap_or(&true)
 }
 
+/// A/B toggle (default OFF): give ETB tutor-on-a-body creatures engine keep-value so the pilot
+/// stops discarding/under-keeping them. Enable with --tutor-keep.
+pub static TUTOR_CREATURE_KEEP: std::sync::OnceLock<bool> = std::sync::OnceLock::new();
+fn tutor_creature_keep() -> bool {
+    *TUTOR_CREATURE_KEEP.get().unwrap_or(&false)
+}
+const TUTOR_CREATURES: &[&str] = &["Spellseeker", "Imperial Recruiter"];
+
 const PAYOFFS: &[&str] = &["Thassa's Oracle", "Grapeshot", "Brain Freeze"];
 const BODIES: &[&str] = &[
     "Krark, the Thumbless", "Sakashima of a Thousand Faces", "Glasspool Mimic", "Phantasmal Image",
@@ -70,6 +78,7 @@ fn in_engine(name: &str) -> bool {
         || MANA_ENGINES.contains(&name)
         || PAYOFFS.contains(&name)
         || ENGINE_EXTRA.contains(&name)
+        || (tutor_creature_keep() && TUTOR_CREATURES.contains(&name))
 }
 
 fn have(s: &GameState, name: &str) -> bool {

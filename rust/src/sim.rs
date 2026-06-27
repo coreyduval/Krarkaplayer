@@ -66,7 +66,7 @@ fn mana_rocks() -> &'static [&'static str] {
     &[
         "Sol Ring", "Arcane Signet", "Chrome Mox", "Mox Diamond", "Lotus Petal",
         "Springleaf Drum", "Mana Vault", "Mox Amber", "Relic of Legends",
-        "Simian Spirit Guide", "Talisman of Creativity",
+        "Simian Spirit Guide", "Talisman of Creativity", "Grim Monolith",
     ]
 }
 
@@ -76,6 +76,7 @@ fn lands_set() -> &'static [&'static str] {
         "Ancient Tomb", "Command Tower", "Shivan Reef", "Sulfur Falls", "Volcanic Island",
         "Mana Confluence", "Fiery Islet", "Steam Vents",
         "Scalding Tarn", "Polluted Delta", "Bloodstained Mire",
+        "Misty Rainforest", "Arid Mesa", "Wooded Foothills", "Flooded Strand",
     ]
 }
 fn is_land_name(n: &str) -> bool {
@@ -84,7 +85,17 @@ fn is_land_name(n: &str) -> bool {
 /// Fetchlands: not mana sources themselves; playing one searches the library, prioritizing Steam
 /// Vents (then a color-aware basic), thinning the deck. All three can grab Steam Vents (Isl+Mtn).
 fn is_fetch(n: &str) -> bool {
-    matches!(n, "Scalding Tarn" | "Polluted Delta" | "Bloodstained Mire")
+    matches!(
+        n,
+        "Scalding Tarn" | "Polluted Delta" | "Bloodstained Mire"
+            | "Misty Rainforest" | "Arid Mesa" | "Wooded Foothills" | "Flooded Strand"
+    )
+}
+/// Burst rocks that tap for {C}{C}{C}, don't untap during the untap step, and are kept out of the
+/// normal small-cast tap path (cracked only by the eager ≥3-generic tap). Mana Vault additionally
+/// bleeds 1 life/turn while tapped; Grim Monolith does not (that difference stays Mana-Vault-only).
+fn is_dormant_rock(n: &str) -> bool {
+    n == "Mana Vault" || n == "Grim Monolith"
 }
 
 // #1 adaptive go-off search: cheap scan with SCAN_SIMS rollouts first; only escalate to the full
@@ -99,9 +110,9 @@ const FAST_KEEP: &[&str] = &[
     // explosive mana
     "Sol Ring", "Mana Vault", "Lotus Petal", "Chrome Mox", "Mox Diamond", "Mox Amber",
     "Lion's Eye Diamond", "Jeska's Will", "Rite of Flame", "Pyretic Ritual", "Desperate Ritual",
-    "Strike It Rich",
+    "Strike It Rich", "Grim Monolith",
     // per-cast engines + trigger doublers
-    "Storm-Kiln Artist", "Archmage Emeritus", "Birgi, God of Storytelling", "Tavern Scoundrel",
+    "Storm-Kiln Artist", "Archmage Emeritus", "Birgi, God of Storytelling", "Electro, Assaulting Battery", "Tavern Scoundrel",
     "Veyran, Voice of Duality", "Harmonic Prodigy", "Vivi Ornitier", "Urabrask",
     // combo pieces + tutors
     "Twinflame", "Heat Shimmer", "Dualcaster Mage", "Spellseeker", "Imperial Recruiter", "Gamble",
@@ -110,7 +121,7 @@ const FAST_KEEP: &[&str] = &[
 const FAST_MANA_KEEP: &[&str] = &[
     "Sol Ring", "Mana Vault", "Lotus Petal", "Chrome Mox", "Mox Diamond", "Mox Amber",
     "Lion's Eye Diamond", "Jeska's Will", "Rite of Flame", "Pyretic Ritual", "Desperate Ritual",
-    "Strike It Rich",
+    "Strike It Rich", "Grim Monolith",
 ];
 
 // ── Mulligan policy (3 experiment axes) ──────────────────────────────────────
@@ -205,6 +216,7 @@ fn play_priority(name: &str) -> Option<i64> {
         "Mox Diamond" => 1,
         "Sol Ring" => 1,
         "Mana Vault" => 1,
+        "Grim Monolith" => 1,
         "Arcane Signet" => 2,
         "Talisman of Creativity" => 2,
         "Springleaf Drum" => 2,
@@ -219,6 +231,7 @@ fn play_priority(name: &str) -> Option<i64> {
         "Ragavan, Nimble Pilferer" => 3,
         "Krark, the Thumbless" => 3,
         "Birgi, God of Storytelling" => 4,
+        "Electro, Assaulting Battery" => 4,
         "Harmonic Prodigy" => 4,
         "Roaming Throne" => 4,
         "Okaun, Eye of Chaos" => 4,
@@ -520,6 +533,7 @@ impl<'a> SimGame<'a> {
         else if has("Archmage Emeritus") { "Archmage Emeritus".into() }
         else if has("Tavern Scoundrel") { "Tavern Scoundrel".into() }
         else if has("Birgi, God of Storytelling") { "Birgi".into() }
+        else if has("Electro, Assaulting Battery") { "Electro".into() }
         else if has("Vivi Ornitier") || has("Urabrask") { "Vivi/Urabrask (burn)".into() }
         else if has("Underworld Breach") { "Underworld Breach".into() }
         else { "ritual/Jeska burst (no perm engine)".into() }
@@ -576,10 +590,10 @@ impl<'a> SimGame<'a> {
                     // Underworld Breach combo, modeled separately in loops.rs. Keep it out of the
                     // turn-by-turn casting tap-path.
                     && !matches!(mana_source(n), Some((SrcMode::SacHand, _)))
-                    // Mana Vault is never in the normal tap path — its {C}{C}{C} is wasted on small
-                    // casts (and starts the 1-life/turn bleed). It's cracked deliberately by the
-                    // eager tap in try_cast only when a cast actually needs >=3 generic.
-                    && n.as_str() != "Mana Vault"
+                    // Dormant rocks (Mana Vault / Grim Monolith) are never in the normal tap path —
+                    // their {C}{C}{C} is wasted on small casts (and Mana Vault starts the 1-life/turn
+                    // bleed). Cracked deliberately by the eager tap in try_cast only on >=3 generic.
+                    && !is_dormant_rock(n)
             })
             .filter(|(i, _)| self.source_active(*i))
             .filter(|(i, (n, _))| {
@@ -733,7 +747,7 @@ impl<'a> SimGame<'a> {
         // it. Stays tapped (1 life/turn after) — the intended trade for a turn-earlier engine piece.
         if cost.get("generic").copied().unwrap_or(0) >= 3 {
             if let Some(idx) = (0..self.board.len()).find(|&i| {
-                self.board[i].0 == "Mana Vault"
+                is_dormant_rock(&self.board[i].0)
                     && !self.tapped.contains(&i)
                     && !self.sacrificed.contains(&i)
             }) {
@@ -819,10 +833,10 @@ impl<'a> SimGame<'a> {
             let new_idx = self.board.len();
             self.board.push((card.to_string(), cp.clone()));
             // Auto-tap a freshly deployed mana source so its mana is available this turn — EXCEPT
-            // Mana Vault: it doesn't untap and bleeds 1 life/turn, so cracking it on deploy wastes
-            // its {C}{C}{C} on an empty turn. It's tapped deliberately by the eager tap in try_cast
-            // when a cast actually needs >=3 generic (e.g. Sakashima).
-            if is_mana_source(card) && card != "Mana Vault" {
+            // dormant rocks (Mana Vault / Grim Monolith): they don't untap, so cracking on deploy
+            // wastes their {C}{C}{C} on an empty turn. Tapped deliberately by the eager tap in
+            // try_cast when a cast actually needs >=3 generic (e.g. Sakashima).
+            if is_mana_source(card) && !is_dormant_rock(card) {
                 self.tap_source(new_idx, pool);
             }
             if cp.is_none() && is_etb_tutor(card) {
@@ -857,6 +871,7 @@ impl<'a> SimGame<'a> {
                 tapped: self.tapped.contains(&idx),
                 summoning_sick: false,
                 is_token: false,
+                temporary: false,
             })
             .collect();
         GameState {
@@ -1406,7 +1421,11 @@ impl<'a> SimGame<'a> {
                 set.insert(c.clone());
             }
             for c in set {
-                if reg.get(&c).is_instant_or_sorcery() && !["Grapeshot", "Thassa's Oracle"].contains(&c.as_str()) {
+                // Twinflame/Heat Shimmer make temporary tokens that only help the go-off turn, so
+                // they're finishers for the planner rollout, not greedy-ramp casts — exclude them
+                // here so develop never wastes them a turn early.
+                if reg.get(&c).is_instant_or_sorcery()
+                    && !["Grapeshot", "Thassa's Oracle", "Twinflame", "Heat Shimmer"].contains(&c.as_str()) {
                     let sc = loops::develop_score(state, reg, &c);
                     scores.insert(c, sc);
                 }
@@ -1447,7 +1466,7 @@ impl<'a> SimGame<'a> {
             let treasure_dig_out = state.hand.iter().any(|c| c == "Thassa's Oracle")
                 && state.mana.treasures >= 2 * (lib - dev).max(0) / flips + 2;
             let krark = state.krark_bodies(self.reg) >= 1;
-            let engine_perm = ["Storm-Kiln Artist", "Birgi, God of Storytelling", "Urabrask", "Tavern Scoundrel"]
+            let engine_perm = ["Storm-Kiln Artist", "Birgi, God of Storytelling", "Electro, Assaulting Battery", "Urabrask", "Tavern Scoundrel"]
                 .iter()
                 .any(|n| state.has_permanent(n));
             // Oracle closes by drawing the library down to devotion, so raw treasures (which fund the
@@ -1593,6 +1612,11 @@ impl<'a> SimGame<'a> {
             }
         }
         for p in &state.battlefield[orig_bf..] {
+            // Twinflame/Heat Shimmer tokens are sacrificed at end of turn — never persist them to the
+            // real board. (develop doesn't cast the shimmers anyway; this is the safety chokepoint.)
+            if p.temporary {
+                continue;
+            }
             self.board.push((p.name.clone(), p.copy_of.clone()));
         }
         // Commit any Fiery Islet sacrificed for a card during develop: remove it from the real board
@@ -1622,10 +1646,11 @@ impl<'a> SimGame<'a> {
     // ── one turn ──────────────────────────────────────────────────────────
     pub fn play_turn(&mut self, det: &DeterministicKillSearch, prob: &mut ProbabilisticPlanner) -> Option<Line> {
         self.turn += 1;
-        // Mana Vault doesn't untap during the untap step (only by paying {4}, which this burst-combo
-        // deck never bothers with), so it stays tapped once used. Untap everything else.
-        self.tapped.retain(|&i| self.board.get(i).map(|(n, _)| n == "Mana Vault").unwrap_or(false));
-        // Mana Vault deals 1 damage to you each upkeep while it's tapped.
+        // Dormant rocks (Mana Vault / Grim Monolith) don't untap during the untap step (only by
+        // paying {4}, which this burst-combo deck never bothers with), so they stay tapped once
+        // used. Untap everything else.
+        self.tapped.retain(|&i| self.board.get(i).map(|(n, _)| is_dormant_rock(n)).unwrap_or(false));
+        // Mana Vault (but NOT Grim Monolith) deals 1 damage to you each upkeep while it's tapped.
         let mv_tapped = self
             .tapped
             .iter()
@@ -1876,6 +1901,7 @@ impl<'a> SimGame<'a> {
             ("COMBO", &["Twinflame", "Heat Shimmer", "Dualcaster Mage"]),
             ("MANA-ENG", &[
                 "Storm-Kiln Artist", "Archmage Emeritus", "Birgi, God of Storytelling",
+                "Electro, Assaulting Battery",
                 "Jeska's Will", "Strike It Rich", "Rite of Flame", "Pyretic Ritual", "Desperate Ritual",
             ]),
             ("BURN", &["Urabrask", "Vivi Ornitier"]),

@@ -107,7 +107,7 @@ pub fn is_magecraft_fuel(name: &str) -> bool {
 
 const CAST_VALUE_ENGINES: &[&str] = &[
     "Storm-Kiln Artist", "Archmage Emeritus", "Birgi, God of Storytelling", "Urabrask",
-    "Tavern Scoundrel", "Vivi Ornitier",
+    "Tavern Scoundrel", "Vivi Ornitier", "Electro, Assaulting Battery",
 ];
 
 // --------------------------------------------------------------------------- //
@@ -685,6 +685,9 @@ pub fn develop_score(s: &GameState, reg: &Registry, card: &str) -> f64 {
     let a = analyze_cast(s, reg, card);
     if card == "Quasiduplicate" {
         return crate::resolver::quasi_value(s, reg, a.e_effect_resolutions);
+    }
+    if card == "Twinflame" || card == "Heat Shimmer" {
+        return crate::resolver::shimmer_value(s, reg, a.e_effect_resolutions);
     }
     if card == "Gamble" {
         // tutor: best card it can find minus expected random discard loss

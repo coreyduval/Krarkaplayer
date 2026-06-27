@@ -84,6 +84,7 @@ pub const LEGENDARY_CREATURES: &[&str] = &[
     "Sakashima of a Thousand Faces",
     "Baral, Chief of Compliance",
     "Birgi, God of Storytelling",
+    "Electro, Assaulting Battery",
     "Vivi Ornitier",
     "Urabrask",
     "Veyran, Voice of Duality",
@@ -267,6 +268,10 @@ pub struct Permanent {
     pub tapped: bool,
     pub summoning_sick: bool,
     pub is_token: bool,
+    /// Twinflame / Heat Shimmer token copies are sacrificed at end of turn — they only ever help the
+    /// go-off turn they're made. Filtered at the develop copy-back so they never persist to the real
+    /// board; permanent tokens (Quasiduplicate) leave this false.
+    pub temporary: bool,
 }
 
 impl Permanent {
@@ -277,6 +282,7 @@ impl Permanent {
             tapped: false,
             summoning_sick: true,
             is_token: false,
+            temporary: false,
         }
     }
 
@@ -299,6 +305,7 @@ pub fn krark_body(name: &str, copy_of: Option<&str>, token: bool) -> Permanent {
         tapped: false,
         summoning_sick: false,
         is_token: token,
+        temporary: false,
     }
 }
 
@@ -365,6 +372,19 @@ impl GameState {
             .iter()
             .filter(|p| p.functions_as(reg).is_krark_body)
             .count() as i64
+    }
+
+    /// Is a REAL Sakashima of a Thousand Faces — the legend-rule break — on the battlefield? Only the
+    /// actual Sakashima card (by name, even while it's copying Krark) or a permanent copying Sakashima
+    /// grants "the legend rule doesn't apply to your permanents", which is what lets a SECOND copy of a
+    /// legendary creature stick. Clone bodies keep their own names on the board (Glasspool Mimic, …),
+    /// so they don't match. Without this, copying a legendary (Krark / Birgi / Veyran …) is pointless:
+    /// the duplicate dies to the legend rule before you can flip / trigger with it.
+    pub fn has_sakashima_break(&self) -> bool {
+        self.battlefield.iter().any(|p| {
+            p.name == "Sakashima of a Thousand Faces"
+                || p.effective_name() == "Sakashima of a Thousand Faces"
+        })
     }
 
     /// Is a legendary creature in play? Mox Amber makes mana only if one is. The deck's relevant

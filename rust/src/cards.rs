@@ -201,6 +201,7 @@ const CREATURES: &[&str] = &[
     "Veyran, Voice of Duality", "Vivi Ornitier", "Zndrsplt, Eye of Wisdom",
     "Glasspool Mimic", "Phantasmal Image", "Subtlety", "Thassa's Oracle",
     "Valley Floodcaller", "Phyrexian Metamorph", "Mockingbird", "Roaming Throne",
+    "Electro, Assaulting Battery",
 ];
 const SORCERIES: &[&str] = &[
     "Quasiduplicate", "Gamble", "Jeska's Will", "Ponder", "Grapeshot",
@@ -222,7 +223,7 @@ const ARTIFACTS: &[&str] = &[
     "Defense Grid", "Arcane Signet", "Chrome Mox", "Krark's Thumb",
     "Lion's Eye Diamond", "Lotus Petal", "Mox Diamond", "Sol Ring",
     "Springleaf Drum", "The One Ring", "Mana Vault", "Mox Amber", "Relic of Legends",
-    "Simian Spirit Guide", "Talisman of Creativity",
+    "Simian Spirit Guide", "Talisman of Creativity", "Grim Monolith",
 ];
 
 fn subtypes_for(name: &str) -> Vec<String> {
@@ -233,6 +234,7 @@ fn subtypes_for(name: &str) -> Vec<String> {
         "Veyran, Voice of Duality" => &["Human", "Wizard"],
         "Harmonic Prodigy" => &["Human", "Shaman"],
         "Birgi, God of Storytelling" => &["God"],
+        "Electro, Assaulting Battery" => &["Human", "Villain"],
         "Urabrask" => &["Phyrexian", "Praetor"],
         "Vivi Ornitier" => &["Wizard"],
         _ => &[],
@@ -266,6 +268,12 @@ fn apply_engine(name: &str, cd: &mut CardDef) {
         "Birgi, God of Storytelling" => {
             cd.mana_per_trigger = mana("R");
             cd.trigger_cause = Some("spell_cast".into());
+        }
+        // Electro adds {R} only on instant/sorcery casts (Birgi triggers on any spell), so use the
+        // I/S "is_cast" cause; the persistent-mana clause matches Birgi's within-turn retention.
+        "Electro, Assaulting Battery" => {
+            cd.mana_per_trigger = mana("R");
+            cd.trigger_cause = Some("is_cast".into());
         }
         "Urabrask" => {
             cd.mana_per_trigger = mana("R");

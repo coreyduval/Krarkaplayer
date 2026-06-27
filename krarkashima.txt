@@ -75,6 +75,10 @@ Steam Vents|Land|0|Land — Island Mountain. As Steam Vents enters, you may pay 
 Scalding Tarn|Land|0|{T}, Pay 1 life, Sacrifice Scalding Tarn: Search your library for an Island or Mountain card, put it onto the battlefield, then shuffle.
 Polluted Delta|Land|0|{T}, Pay 1 life, Sacrifice Polluted Delta: Search your library for an Island or Swamp card, put it onto the battlefield, then shuffle.
 Bloodstained Mire|Land|0|{T}, Pay 1 life, Sacrifice Bloodstained Mire: Search your library for a Swamp or Mountain card, put it onto the battlefield, then shuffle.
+Misty Rainforest|Land|0|{T}, Pay 1 life, Sacrifice Misty Rainforest: Search your library for a Forest or Island card, put it onto the battlefield, then shuffle.
+Arid Mesa|Land|0|{T}, Pay 1 life, Sacrifice Arid Mesa: Search your library for a Mountain or Plains card, put it onto the battlefield, then shuffle.
+Wooded Foothills|Land|0|{T}, Pay 1 life, Sacrifice Wooded Foothills: Search your library for a Mountain or Forest card, put it onto the battlefield, then shuffle.
+Flooded Strand|Land|0|{T}, Pay 1 life, Sacrifice Flooded Strand: Search your library for a Plains or Island card, put it onto the battlefield, then shuffle.
 Mystical Tutor|{U}|1|Instant. Search your library for an instant or sorcery card, reveal it, then shuffle and put that card on top.
 Overmaster|{R}|1|Sorcery. The next instant or sorcery spell you cast this turn can't be countered. Draw a card.
 Expedite|{R}|1|Instant. Target creature gains haste until end of turn. Draw a card.
@@ -90,4 +94,7 @@ Step Through|{2}|2|Sorcery. Wizardcycling {2} ({2}, Discard: search your library
 Talisman of Creativity|{2}|2|Artifact. {T}: Add {C}. {T}: Add {U} or {R}, deal 1 damage to you.
 Mockingbird|{1}{U}|2|Creature — Bird Bard. Enter as a copy of any creature with mana value <= mana spent (X=1 copies Krark), except it's a Bird with flying.
 Roaming Throne|{4}|4|Artifact Creature — Golem. Ward {2}. As this enters, choose a creature type (Wizard). Triggered abilities of your other creatures of the chosen type trigger an additional time.
+The One Ring|{4}|4|[BENCH — --add only] Legendary Artifact. Indestructible. When it enters, you gain protection from everything until your next turn. At the beginning of your upkeep, you lose 1 life for each burden counter on it. {T}: Put a burden counter on it, then draw a card for each burden counter on it.
+Electro, Assaulting Battery|{1}{R}{R}|3|[BENCH — --add only] Legendary Creature — Human Villain. Flying. You don't lose unspent red mana as steps and phases end. Whenever you cast an instant or sorcery spell, add {R}. When Electro leaves the battlefield, you may pay {X}: he deals X damage to target player. (Modeled as a Birgi-clone per-cast {R} engine; leave-battlefield payoff not modeled.)
+Grim Monolith|{2}|2|[BENCH — --add only] Artifact. Grim Monolith doesn't untap during your untap step. {T}: Add {C}{C}{C}. {4}: Untap Grim Monolith. (Modeled as Mana Vault minus the upkeep bleed; produces colorless only.)
 Thassa's Oracle|{U}{U}|2|[NOT IN DECK — kept for win-predicate CardDef] When Thassa's Oracle enters the battlefield, look at the top X cards of your library, where X is your devotion to blue. If X is greater than or equal to the number of cards in your library, you win the game. Otherwise, put those cards back in any order.
