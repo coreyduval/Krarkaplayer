@@ -45,7 +45,7 @@ Valley Floodcaller|{1}{U}|2|Flash. Vigilance. You may cast noncreature spells as
 Arcane Signet|{2}|2|{T}: Add one mana
 Chrome Mox|{0}|0|Imprint — When Chrome Mox enters the battlefield, you may exile a nonartifact, nonland card from your hand. {T}: Add one mana of any of the exiled card's colors.
 Krark's Thumb|{2}|2|Legendary Artifact. If you would flip a coin, flip two coins and choose one of them instead.
-Lion's Eye Diamond|{0}|0|Sacrifice Lion's Eye Diamond, Discard your hand: Add three mana of any one color. Activate only as a sorcery.
+Lion's Eye Diamond|{0}|0|Sacrifice Lion's Eye Diamond, Discard your hand: Add three mana of any one color.
 Lotus Petal|{0}|0|Sacrifice Lotus Petal: Add one mana of any color.
 Mox Diamond|{0}|0|If Mox Diamond would enter the battlefield, you may discard a land card instead. If you do, put Mox Diamond onto the battlefield. If you don't, put it into its owner's graveyard. {T}: Add one mana of any color.
 Sol Ring|{1}|1|{T}: Add {C}{C}.
