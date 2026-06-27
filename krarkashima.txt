@@ -30,8 +30,8 @@ Frantic Search|{2}{U}|3|Draw two cards, then discard two cards. Untap up to thre
 Snap|{1}{U}|2|Return target creature to its owner's hand. Untap up to two lands.
 Gut Shot|{R/P}|1|Gut Shot deals 1 damage to any target. ({R/P} can be paid with either {R} or 2 life.)
 Strike It Rich|{R}|1|Create a Treasure token. Flashback {2}{R}.
-Desperate Ritual|{1}{R}{R}|3|Add {R}{R}{R}. Splice onto Arcane {1}{R}
-Pyretic Ritual|{1}{R}{R}|3|Add {R}{R}{R}.
+Desperate Ritual|{1}{R}|2|Add {R}{R}{R}. Splice onto Arcane {1}{R}
+Pyretic Ritual|{1}{R}|2|Add {R}{R}{R}.
 Deflecting Swat|{2}{R}|3|You may choose new targets for target spell or ability. If you control a commander, you may cast this spell without paying its mana cost.
 Fierce Guardianship|{2}{U}|3|Counter target noncreature spell. If you control a commander, you may cast this spell without paying its mana cost.
 Flusterstorm|{U}|1|Counter target instant or sorcery spell unless its controller pays {1}. Storm.
