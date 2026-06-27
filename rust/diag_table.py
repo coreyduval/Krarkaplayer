@@ -33,7 +33,7 @@ in_goff = False
 goff_hdr = ""
 
 def fresh(n):
-    return dict(n=n, draws=[], land="", single=[], dev=collections.OrderedDict(),
+    return dict(n=n, hand="", draws=[], land="", single=[], dev=collections.OrderedDict(),
                 deploy=[], jeska_cards=[], lost=[])
 
 for ln in raw:
@@ -55,6 +55,9 @@ for ln in raw:
         if cur is not None: cur["goff"] = []
     elif cur is None:
         continue
+    elif s.startswith("HAND") and not cur["hand"]:
+        # first HAND line per turn = the start-of-turn (post-draw) hand; ignore the win-block HAND
+        cur["hand"] = s.split(":", 1)[1].strip()
     elif s.startswith("DRAW"):
         cur["draws"] += [x.strip() for x in s.split(":", 1)[1].split(",") if x.strip()]
     elif s.startswith("LAND"):
@@ -100,12 +103,12 @@ def plays_cell(t):
 
 print(f"Game seed={seed}")
 print(f"Opening: {opening}\n")
-print("| Turn | Drew | Land | Plays (xN = attempts, x/y = flip wins/flips) | Lost (discard/exile) |")
-print("|---|---|---|---|---|")
+print("| Turn | Hand @ start | Drew | Land | Plays (xN = attempts, x/y = flip wins/flips) | Lost (discard/exile) |")
+print("|---|---|---|---|---|---|")
 for t in turns:
     drew = ", ".join(t["draws"]) if t["draws"] else "-"
     lost = ", ".join(t["lost"]) if t["lost"] else "-"
-    print(f"| {t['n']} | {drew} | {t['land'] or '-'} | {plays_cell(t)} | {lost} |")
+    print(f"| {t['n']} | {t['hand'] or '-'} | {drew} | {t['land'] or '-'} | {plays_cell(t)} | {lost} |")
 
 if win_turn:
     print(f"\nWin — turn {win_turn}: {win_detail}")

@@ -1689,6 +1689,12 @@ impl<'a> SimGame<'a> {
         if self.turn > 1 || self.on_the_draw {
             self.draw();
         }
+        if self.verbose {
+            // Hand the pilot starts the turn's plays with (post-draw, pre-plays).
+            let mut h = self.hand.clone();
+            h.sort();
+            println!("  HAND    : {}", if h.is_empty() { "(empty)".into() } else { h.join(", ") });
+        }
 
         let mut pool = ManaPool { slots: [0; 7], treasures: self.treasures };
         if self.audit_on {
