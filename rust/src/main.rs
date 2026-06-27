@@ -610,6 +610,7 @@ fn main() {
             sim::MULL_CFG.set(parse_mull_cfg(&args)).ok();
             sim::DEV_CAP.set(arg_val(&args, "--dev-cap").and_then(|v| v.parse().ok()).unwrap_or(12)).ok();
             sim::ROLLOUT_STEPS.set(arg_val(&args, "--rollout-steps").and_then(|v| v.parse().ok()).unwrap_or(20)).ok();
+            planner::RITUAL_PRELUDE.set(args.iter().any(|a| a == "--ritual-prelude")).ok();
             loops::AGGRO_CANTRIPS.set(!args.iter().any(|a| a == "--no-aggro-cantrips")).ok();
             loops::PRE_KRARK_DIG.set(args.iter().any(|a| a == "--precrark-dig")).ok();
             sim::SMART_LAND.set(!args.iter().any(|a| a == "--no-smart-land")).ok();
@@ -642,6 +643,7 @@ fn main() {
             sim::MULL_CFG.set(parse_mull_cfg(&args)).ok();
             sim::DEV_CAP.set(arg_val(&args, "--dev-cap").and_then(|v| v.parse().ok()).unwrap_or(12)).ok();
             sim::ROLLOUT_STEPS.set(arg_val(&args, "--rollout-steps").and_then(|v| v.parse().ok()).unwrap_or(20)).ok();
+            planner::RITUAL_PRELUDE.set(args.iter().any(|a| a == "--ritual-prelude")).ok();
             loops::AGGRO_CANTRIPS.set(!args.iter().any(|a| a == "--no-aggro-cantrips")).ok();
             loops::PRE_KRARK_DIG.set(args.iter().any(|a| a == "--precrark-dig")).ok();
             resolver::SHIMMER_TOKENS.set(!args.iter().any(|a| a == "--no-shimmer-tokens")).ok();
@@ -659,6 +661,7 @@ fn main() {
             sim::MULL_CFG.set(parse_mull_cfg(&args)).ok();
             sim::DEV_CAP.set(arg_val(&args, "--dev-cap").and_then(|v| v.parse().ok()).unwrap_or(12)).ok();
             sim::ROLLOUT_STEPS.set(arg_val(&args, "--rollout-steps").and_then(|v| v.parse().ok()).unwrap_or(20)).ok();
+            planner::RITUAL_PRELUDE.set(args.iter().any(|a| a == "--ritual-prelude")).ok();
             // Verbose single-game log: `krarksim diag --seed N [--luck L] [--max-turns T]`.
             let seed: u64 = arg_val(&args, "--seed").and_then(|v| v.parse().ok()).unwrap_or(0);
             let luck: u64 = arg_val(&args, "--luck").and_then(|v| v.parse().ok()).unwrap_or(0);

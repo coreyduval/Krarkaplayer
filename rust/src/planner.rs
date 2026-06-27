@@ -10,6 +10,21 @@ use crate::win;
 use rand::Rng;
 use std::collections::HashSet;
 
+/// Experiment flag (--ritual-prelude): let the planner fire a sorcery-speed ritual to power out a
+/// payoff a turn early. Default off. See best_line's ritual-prelude branch + sim::declare gate.
+pub static RITUAL_PRELUDE: std::sync::OnceLock<bool> = std::sync::OnceLock::new();
+fn ritual_prelude_on() -> bool {
+    *RITUAL_PRELUDE.get().unwrap_or(&false)
+}
+/// Cheap red rituals usable as a mana prelude. Net-positive only with a Krark flip win (lose-flip
+/// returns the spell to hand for 0), so the prelude is inherently probabilistic.
+pub const PRELUDE_RITUALS: &[&str] = &["Pyretic Ritual", "Desperate Ritual", "Rite of Flame"];
+/// True if a committed line's first cast is a pure-mana ritual prelude — its fizzle is benign
+/// (the payoff is never committed; the ritual just bounces back to hand), so it gates at send_gate.
+pub fn first_is_prelude_ritual(line: &Line) -> bool {
+    line.first.as_ref().map_or(false, |(c, _)| PRELUDE_RITUALS.contains(&c.as_str()))
+}
+
 // --------------------------------------------------------------------------- //
 // Actions / Line
 // --------------------------------------------------------------------------- //
@@ -696,6 +711,55 @@ impl ProbabilisticPlanner {
                 evaluate(&mut best, &eng_base, &deploy_acts, "deploy engine + ", rng);
                 if !fired(&best) {
                     eval_loops(&mut best, &eng_base, &deploy_acts, "deploy engine + ", rng);
+                }
+            }
+        }
+
+        // Ritual prelude (--ritual-prelude): with a Krark body online, try firing a sorcery-speed
+        // ritual as the FIRST cast to float enough mana for a payoff this turn (e.g. land-light
+        // Jeska's Will). rollout_estimate casts the ritual through the resolver, so its mc_sims
+        // average over the flip's win (RRR[+copy]) and whiff (0 mana, card back to hand) — the
+        // returned p_win already prices the flip risk. The fizzle is benign (see first_is_prelude_
+        // ritual + sim::declare's gate), so a low-odds attempt is "free" under the clone model.
+        if ritual_prelude_on() && !fired(&best) && state.krark_bodies(reg) >= 1 {
+            let dev_base = tap_out(state);
+            let mut seen: HashSet<&str> = HashSet::new();
+            for r in &dev_base.hand {
+                if !PRELUDE_RITUALS.contains(&r.as_str()) || !seen.insert(r.as_str()) {
+                    continue;
+                }
+                if !dev_base.mana.can_pay(&dev_base.cast_cost(reg, r)) {
+                    continue;
+                }
+                if fired(&best) {
+                    break;
+                }
+                let est = loops::rollout_estimate(
+                    &dev_base,
+                    reg,
+                    (r, "hand"),
+                    payoffs,
+                    self.mc_sims,
+                    self.rollout_steps,
+                    rng,
+                    thr,
+                );
+                if est.p_win > best.p_win {
+                    let won = est
+                        .by_payoff
+                        .iter()
+                        .max_by(|a, b| a.1.partial_cmp(&b.1).unwrap())
+                        .map(|(k, _)| k.clone())
+                        .unwrap_or_else(|| "loop".into());
+                    best = Line {
+                        actions: vec![Action::cast(r)],
+                        kind: "probabilistic".into(),
+                        p_win: est.p_win,
+                        detail: format!("ritual {r} -> {won} (P={:.3})", est.p_win),
+                        base: Some(dev_base.clone()),
+                        first: Some((r.clone(), "hand".to_string())),
+                        loop_line: false,
+                    };
                 }
             }
         }

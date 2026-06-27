@@ -1276,7 +1276,11 @@ impl<'a> SimGame<'a> {
         if line.p_win >= 1.0 {
             return Some(line.clone());
         }
-        if line.kind == "probabilistic" && line.p_win >= self.commit_gate() {
+        // A ritual prelude's fizzle is benign — the payoff is never committed, the ritual just
+        // bounces to hand — so it commits at send_gate, never the fatal-fizzle win_threshold.
+        let prelude = crate::planner::first_is_prelude_ritual(line);
+        let gate = if prelude { self.send_gate } else { self.commit_gate() };
+        if line.kind == "probabilistic" && line.p_win >= gate {
             if let (Some(base), Some(first)) = (&line.base, &line.first) {
                 let proven = loops::prove_go_off(
                     base,
@@ -1303,7 +1307,7 @@ impl<'a> SimGame<'a> {
                 //   * insufficient BURN: fatal ONLY if you can't keep burning next turn — i.e. a
                 //     one-shot Grapeshot attempt with NO repeatable burn engine (Urabrask/Vivi) on
                 //     board. If Urabrask/Vivi is out, you keep chipping next turn -> survive.
-                if self.fizzle_fatal && self.fizzle_is_fatal() {
+                if self.fizzle_fatal && self.fizzle_is_fatal() && !prelude {
                     self.dead = true;
                 }
             }
