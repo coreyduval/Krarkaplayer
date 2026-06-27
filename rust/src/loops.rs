@@ -864,8 +864,9 @@ pub fn trace_cast_line(tag: &str, step: i64, card: &str, log: &ResolveLog, pre: 
     }
     let fx_s = if fx.is_empty() { "(no carryover)".to_string() } else { fx.join(", ") };
     format!(
-        "    {tag}{step:>2}: {card}{flip}\n           -> {res}  |  {fx_s}  |  mana left: {} (storm {})  |  opp {} life",
+        "    {tag}{step:>2}: {card}{flip}\n           -> {res}  |  {fx_s}  |  mana left: {} {} (storm {})  |  opp {} life",
         post.mana.total(),
+        crate::sim::fmt_pool(&post.mana),
         post.storm_count,
         live(post)
     )

@@ -2,8 +2,13 @@
 """Clean tabular view of a `krarksim diag` game.
 
 Runs `./target/release/krarksim diag --seed N [extra...]`, parses the verbose trace,
-and prints a per-turn table (Drew / Land / Plays) where each play shows how many times
-it was attempted (xN) and its coin-flip results (wins/flips), plus the go-off sequence.
+and prints a per-turn table (Drew / Land / Plays / Lost) where Drew lists every card drawn
+that turn (draw step + all develop draws/tutors), each play shows how many times it was
+attempted (xN) and its coin-flip results (wins/flips), and Lost lists every card discarded
+or exiled from hand that turn. Also prints the go-off sequence.
+
+Note: the go-off/kill line is computed by the planner and shown separately; cards a kill line
+dumps from hand (e.g. Lion's Eye Diamond's "discard your hand") are not itemized per-turn.
 
 Usage:  python diag_table.py <seed> [extra diag flags...]
 """
@@ -28,8 +33,8 @@ in_goff = False
 goff_hdr = ""
 
 def fresh(n):
-    return dict(n=n, drew="", land="", single=[], dev=collections.OrderedDict(),
-                deploy=[], dug=0, jeska=0)
+    return dict(n=n, draws=[], land="", single=[], dev=collections.OrderedDict(),
+                deploy=[], jeska_cards=[], lost=[])
 
 for ln in raw:
     s = ln.strip()
@@ -51,7 +56,7 @@ for ln in raw:
     elif cur is None:
         continue
     elif s.startswith("DRAW"):
-        cur["drew"] = s.split(":", 1)[1].strip()
+        cur["draws"] += [x.strip() for x in s.split(":", 1)[1].split(",") if x.strip()]
     elif s.startswith("LAND"):
         cur["land"] = s.split(":", 1)[1].strip()
     elif (m := CAST.match(ln)):
@@ -59,9 +64,18 @@ for ln in raw:
     elif (m := DEPLOY.match(ln)):
         cur["deploy"] += [x.strip() for x in m.group(1).split(",")]
     elif s.startswith("DUG"):
-        cur["dug"] += len([x for x in s.split(":", 1)[1].split(",") if x.strip()])
+        cur["draws"] += [x.strip() for x in s.split(":", 1)[1].split(",") if x.strip()]
     elif s.startswith("EXILE") and "play-this-turn" in s:
-        cur["jeska"] += len(s.split("play-this-turn", 1)[1].split(","))
+        cur["jeska_cards"] += [x.strip() for x in s.split("play-this-turn", 1)[1].split(",") if x.strip()]
+    elif s.startswith("IMPRINT"):
+        if (m2 := re.search(r"exiles (.+?) \(", s)):
+            cur["lost"].append(f"{m2.group(1).strip()} (exiled)")
+    elif s.startswith("PITCH"):
+        if (m2 := re.search(r"discards (.+?) \(", s)):
+            cur["lost"].append(f"{m2.group(1).strip()} (discarded)")
+    elif s.startswith("DISCARD"):
+        val = re.sub(r"\s*\(.*\)\s*$", "", s.split(":", 1)[1].strip())
+        cur["lost"] += [f"{x.strip()} (discarded)" for x in val.split(",") if x.strip()]
     elif (m := FLIP.match(ln)) and in_goff:
         cur.setdefault("goff", []).append((m.group(1), m.group(2), m.group(3)))
     elif (m := DEV.match(ln)) and not in_goff:
@@ -80,18 +94,18 @@ def plays_cell(t):
         parts.append(f"{card}{tag}" + (f" ({', '.join(fl)})" if fl else ""))
     if t["deploy"]:
         parts.append("deploy " + ", ".join(t["deploy"]))
-    if t["jeska"]:
-        parts.append(f"Jeska's Will -> exile {t['jeska']} cards to play")
-    if t["dug"]:
-        parts.append(f"(dug {t['dug']})")
+    if t["jeska_cards"]:
+        parts.append("Jeska's Will -> exile [" + ", ".join(t["jeska_cards"]) + "] to play")
     return "; ".join(parts) if parts else "-"
 
 print(f"Game seed={seed}")
 print(f"Opening: {opening}\n")
-print("| Turn | Drew | Land | Plays (xN = attempts, x/y = flip wins/flips) |")
-print("|---|---|---|---|")
+print("| Turn | Drew | Land | Plays (xN = attempts, x/y = flip wins/flips) | Lost (discard/exile) |")
+print("|---|---|---|---|---|")
 for t in turns:
-    print(f"| {t['n']} | {t['drew'] or '-'} | {t['land'] or '-'} | {plays_cell(t)} |")
+    drew = ", ".join(t["draws"]) if t["draws"] else "-"
+    lost = ", ".join(t["lost"]) if t["lost"] else "-"
+    print(f"| {t['n']} | {drew} | {t['land'] or '-'} | {plays_cell(t)} | {lost} |")
 
 if win_turn:
     print(f"\nWin — turn {win_turn}: {win_detail}")

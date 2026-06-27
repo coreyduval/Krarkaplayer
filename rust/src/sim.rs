@@ -47,7 +47,7 @@ fn fmt_cost(cost: &HashMap<String, i64>) -> String {
 
 /// Verbose-only: render a ManaPool's floating mana + persistent treasures, e.g.
 /// "[U U R, +2T]" or "[empty]". '*' is wildcard floating mana.
-fn fmt_pool(pool: &ManaPool) -> String {
+pub fn fmt_pool(pool: &ManaPool) -> String {
     let mut parts: Vec<String> = Vec::new();
     for (sym, n) in pool.iter() {
         for _ in 0..n {
@@ -1122,15 +1122,31 @@ impl<'a> SimGame<'a> {
                 break;
             }
             // tap everything
+            let pool_floating = *pool;
             for (idx, _) in self.untapped_sources() {
                 self.tap_source(idx, pool);
             }
             let state = self.build_state(pool);
+            let cost = state.cast_cost(self.reg, &ramp);
             let cast = loops::do_cast(&state, self.reg, &ramp, "hand", &mut self.dev_rng, DEV_PAYOFFS);
-            let (ns, _log) = match cast {
+            let (ns, log) = match cast {
                 Some(x) => x,
                 None => break,
             };
+            if self.verbose {
+                let flip = if log.flips > 0 {
+                    format!(" ({}/{})", log.wins, log.flips)
+                } else {
+                    String::new()
+                };
+                println!(
+                    "  CAST    : {ramp} (from hand){flip} cost {} | float {} +tap-> avail {} -pay-> {}",
+                    fmt_cost(&cost),
+                    fmt_pool(&pool_floating),
+                    fmt_pool(&state.mana),
+                    fmt_pool(&ns.mana),
+                );
+            }
             self.hand = ns.hand.clone();
             self.library = ns.library.clone();
             self.graveyard = ns.graveyard.clone();
