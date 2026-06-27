@@ -123,6 +123,13 @@ const FAST_MANA_KEEP: &[&str] = &[
     "Lion's Eye Diamond", "Jeska's Will", "Rite of Flame", "Pyretic Ritual", "Desperate Ritual",
     "Strike It Rich", "Grim Monolith",
 ];
+// Mana sources that produce mana on T1 with NO land in play. Excludes Mox Amber (needs a legendary
+// creature/PW in play), Mox Diamond (pitches a land to enter), and Sol Ring/Vault/Signet/Talisman/
+// Springleaf (need a land's worth of mana to cast). A 0-land hand with NONE of these is a "dead
+// hand" — it can't make turn-1 mana and does nothing until it draws a real source.
+const LAND_INDEP_MANA: &[&str] = &[
+    "Lotus Petal", "Chrome Mox", "Lion's Eye Diamond", "Simian Spirit Guide",
+];
 
 // ── Mulligan policy (3 experiment axes) ──────────────────────────────────────
 #[derive(Clone, Copy, PartialEq, Eq, Debug)]
@@ -188,6 +195,10 @@ fn adaptive_gate_value(turn: i64) -> f64 {
 /// Frantic Search up to higher storm before committing, so it recognizes burn/mill finishers
 /// earlier — at the cost of more compute per turn. Default 20.
 pub static ROLLOUT_STEPS: std::sync::OnceLock<i64> = std::sync::OnceLock::new();
+
+/// At the mulligan floor, don't force-keep a hand with no land AND no land-independent mana (it
+/// can't make turn-1 mana) — mulligan deeper, up to depth+2. Default ON; opt out --no-dead-hand-mull.
+pub static DEAD_HAND_MULL: std::sync::OnceLock<bool> = std::sync::OnceLock::new();
 fn rollout_steps() -> i64 {
     *ROLLOUT_STEPS.get().unwrap_or(&20)
 }
@@ -463,12 +474,22 @@ impl<'a> SimGame<'a> {
         self.mulligans = 0;
         self.bottomed = Vec::new();
         let depth = mull_cfg().depth;
-        for mulls in 0..=depth {
+        // Dead-hand override (default ON; opt out --no-dead-hand-mull): withhold the floor's
+        // force-keep from a hand that can't make turn-1 mana (no land + no land-independent source),
+        // mulliganing deeper up to a hard cap so the search never spirals. Off -> hard_cap == depth,
+        // identical to the original force-keep.
+        let dead_hand_mull = *DEAD_HAND_MULL.get().unwrap_or(&true);
+        let hard_cap = if dead_hand_mull { depth + 2 } else { depth };
+        for mulls in 0..=hard_cap {
             let mut d = deck.to_vec();
             shuffle(&mut d, rng);
             let hand: Vec<String> = d[..7].to_vec();
             let lib: Vec<String> = d[7..].to_vec();
-            let keep = (mulls == depth) || self.keepable_at(&hand, mulls);
+            let dead = self.lands(&hand) == 0
+                && !hand.iter().any(|c| LAND_INDEP_MANA.contains(&c.as_str()));
+            // Force-keep at the floor (mulls >= depth), but skip a dead hand until the hard cap.
+            let floor_keep = mulls >= depth && !(dead_hand_mull && dead);
+            let keep = mulls >= hard_cap || floor_keep || self.keepable_at(&hand, mulls);
             if keep {
                 // Multiplayer Commander (this is a 4-player pod): the FIRST mulligan is FREE — it
                 // doesn't count toward the cards bottomed. So after `mulls` mulligans you bottom
