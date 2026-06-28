@@ -99,8 +99,8 @@ rust/src/
   win.rs         win predicate
   tests.rs       selftest scenarios
 krarkashima.txt    card registry (name | mana_cost | mana_value | rules_text), read at runtime
-overnight/         analysis logs / LOO CSVs from prior runs
-original decklist/ the source decklist
+diag_table.py      renders a `diag` game as a clean per-turn Markdown table
+run.py             build wrapper (puts cargo on PATH)
 ```
 
 ## Status

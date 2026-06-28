@@ -90,7 +90,14 @@ off / idle; factor that into ETAs and **state an ETA up front for any long run**
 ## Model assumptions — already implemented, do not regress
 - Goldfish, no interaction. Counters (FoW / Pact / Fierce Guardianship / Flusterstorm /
   Deflecting Swat / Mogg Salvage / An Offer / Cyclonic Rift) are **not** dead cards — they
-  are magecraft/storm **loop fuel**.
+  are magecraft/storm **loop fuel** (need a spell on the stack to target; loopable only with
+  ≥2 counters **and** a non-counter seed spell). **Pact of Negation fires ONLY as part of a kill**
+  — outside a winning turn it owes {3}{U}{U} next upkeep or you lose.
+- **Win lines the planner recognizes (do not regress):** *combat* — Dualcaster Mage +
+  Twinflame/Heat Shimmer = infinite hasty attackers, AND Krark + a shimmer + the Sakashima
+  legend-rule break + renewable mana = infinite hasty Krarks (steer each cast to 1 loss → it
+  returns, wins → token Krarks); *burn* — Vivi/Urabrask 3-per-cast + Grapeshot storm; *mill* —
+  Brain Freeze decks the pod. Thassa's Oracle is **cut** (`DECK_EXCLUDE`).
 - Seat randomization: 0.75 on the draw (extra T1 draw), seeded per game.
 - **Mulligan default `gate=fast`** (mulligan-for-speed: first keep needs explosive mana / an
   engine / a combo piece; validated −0.09 turns free). `--no-fast-mull` reverts to `none`.
