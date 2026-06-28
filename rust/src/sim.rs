@@ -944,6 +944,9 @@ impl<'a> SimGame<'a> {
             let idx = self.board.len();
             self.board.push(("Steam Vents".to_string(), None));
             self.tap_source(idx, pool);
+            if self.verbose {
+                println!("  FETCH   : Steam Vents (shocked in untapped) -3 life -> {}", self.our_life);
+            }
             return;
         }
         // 2) Otherwise fetch the basic covering the larger colored deficit (R vs U).
@@ -982,10 +985,16 @@ impl<'a> SimGame<'a> {
                 let idx = self.board.len();
                 self.board.push((BASIC[k].to_string(), None));
                 self.tap_source(idx, pool);
+                if self.verbose {
+                    println!("  FETCH   : {} (no Steam Vents in library) -1 life -> {}", BASIC[k], self.our_life);
+                }
                 return;
             }
         }
         // No fetchable land left in library: the fetch still sacrificed (land drop spent, no land).
+        if self.verbose {
+            println!("  FETCH   : (no fetchable land left in library)");
+        }
     }
 
     /// Pick which land to play: the one covering our largest colored-mana deficit, where deficit =
@@ -1774,6 +1783,13 @@ impl<'a> SimGame<'a> {
             let mut h = self.hand.clone();
             h.sort();
             println!("  HAND    : {}", if h.is_empty() { "(empty)".into() } else { h.join(", ") });
+            let lands = self
+                .board
+                .iter()
+                .enumerate()
+                .filter(|(i, (n, _))| !self.sacrificed.contains(i) && is_land_name(n))
+                .count();
+            println!("  MANA    : {lands} lands in play, {} treasures", self.treasures);
         }
 
         let mut pool = ManaPool { slots: [0; 7], treasures: self.treasures };

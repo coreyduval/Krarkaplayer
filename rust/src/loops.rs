@@ -645,15 +645,19 @@ pub fn develop_candidates(s: &GameState, reg: &Registry) -> Vec<(String, String)
             return false;
         }
         if MAGECRAFT_FUEL.contains(&c) {
-            // A counter (or Cyclonic Rift) needs a legal TARGET. In a solitaire goldfish there are no
-            // opponent spells/permanents to target, so the only legal way to loop these is >=2 of
-            // them targeting EACH OTHER (ping-pong) -> pure storm into Grapeshot/Brain Freeze. A LONE
-            // counter is NOT loopable just because a value engine is out: a permanent can't be a
-            // counter's target. [fix 2026-06-23: dropped the cast_value_engine permission, which was
-            // letting a single counter loop into an empty stack with no legal target.]
+            // A counter (or Cyclonic Rift) needs a legal TARGET — a spell on the stack. In a solitaire
+            // goldfish there are no opponent spells, and the counters can't bootstrap targets from
+            // EACH OTHER: a copy that wins its Krark flip resolves before it can be re-countered, so
+            // they consume rather than sustain. So the loop needs (a) >=2 counters AND (b) a NON-counter
+            // spell to SEED the stack — a storm payoff / cantrip / ritual whose Krark copies become the
+            // perpetual targets the counter points at while it bounces around for magecraft value.
+            // [fix 2026-06-23: dropped single-counter-into-empty-stack. fix 2026-06-27: + seed source.]
             let two_counters =
                 s.hand.iter().filter(|h| MAGECRAFT_FUEL.contains(&h.as_str())).count() >= 2;
-            if !two_counters {
+            let has_seed = s.hand.iter().any(|h| {
+                reg.get(h).is_instant_or_sorcery() && !MAGECRAFT_FUEL.contains(&h.as_str())
+            });
+            if !two_counters || !has_seed {
                 return false;
             }
             // The loop only sustains if the RIGHT-color mana is there each cast. Free fuel needs
