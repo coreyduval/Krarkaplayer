@@ -1476,6 +1476,9 @@ impl<'a> SimGame<'a> {
 
         let mut cast: Vec<String> = Vec::new();
         let mut dead: HashSet<String> = HashSet::new();
+        // Command-zone bodies (Krark/Sakashima) deployed off develop's floated mana this turn — see
+        // the deploy step below. Removed from the command zone after the loop.
+        let mut deployed_cmd: Vec<String> = Vec::new();
         // Keep developing as long as casts make CARRYOVER progress (cards drawn, opponent damaged/
         // milled, graveyard fuel) — a mana-neutral/positive loop that draws or burns can be looped as
         // far as the kill needs. A cast that makes no carryover progress (only ephemeral storm count /
@@ -1493,6 +1496,48 @@ impl<'a> SimGame<'a> {
                     }
                     recompute(&state, &mut scores, self.reg);
                 }
+            }
+            // Deploy command-zone bodies (Krark/Sakashima) off develop's floated mana, the same way
+            // engine perms are: the body persists (committed below) while the mana discards, so the
+            // go-off still re-taps every source fresh. This lets a ritual cast in develop put Krark
+            // down THIS turn instead of stranding the mana until the post-develop pool deploy (which
+            // can't see it). cmd tax is ~0 in goldfish (no removal -> each body cast once). Sakashima
+            // only deploys once it can copy a Krark — otherwise it's a dead vanilla legend.
+            loop {
+                let krark_out = state.krark_bodies(self.reg) >= 1;
+                let pick = self
+                    .command_zone
+                    .iter()
+                    .find(|b| {
+                        !deployed_cmd.contains(b)
+                            && !(b.as_str() == "Sakashima of a Thousand Faces" && !krark_out)
+                            && state.mana.can_pay(&state.cast_cost(self.reg, b))
+                    })
+                    .cloned();
+                let body = match pick {
+                    Some(b) => b,
+                    None => break,
+                };
+                let cost = state.cast_cost(self.reg, &body).into_owned();
+                state.mana.pay(&cost);
+                let copy_of = if body == "Sakashima of a Thousand Faces" {
+                    Some("Krark, the Thumbless".to_string())
+                } else {
+                    None
+                };
+                state.battlefield.push(Permanent {
+                    name: body.clone(),
+                    copy_of,
+                    tapped: false,
+                    summoning_sick: false,
+                    is_token: false,
+                    temporary: false,
+                });
+                if self.verbose {
+                    println!("    DEPLOY  : {body} (from command)");
+                }
+                deployed_cmd.push(body);
+                recompute(&state, &mut scores, self.reg);
             }
             let oracle_acc = state.hand.iter().any(|c| c == "Thassa's Oracle")
                 || state.has_permanent("Thassa's Oracle")
@@ -1665,6 +1710,14 @@ impl<'a> SimGame<'a> {
                 continue;
             }
             self.board.push((p.name.clone(), p.copy_of.clone()));
+        }
+        // Drop command-zone bodies deployed during develop (now committed to the board above) from
+        // the command zone and bump their commander tax — mirrors try_cast's from_command bookkeeping.
+        for body in &deployed_cmd {
+            if let Some(pos) = self.command_zone.iter().position(|c| c == body) {
+                self.command_zone.remove(pos);
+            }
+            *self.cmd_tax.entry(body.clone()).or_insert(0) += 1;
         }
         // Commit any Fiery Islet sacrificed for a card during develop: remove it from the real board
         // and remap the tapped/sacrificed index sets so they don't point at the wrong permanent.

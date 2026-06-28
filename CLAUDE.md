@@ -40,8 +40,8 @@ Binary: `rust/target/release/krarksim(.exe)`.
 ## Metric framing (speed-first)
 cEDH games are decided early, so the default `--max-turns 12` caps compute at turn 12 and the
 deck is judged on **speed**, not just eventual win%:
-- **EARLY-WIN SCORE** — geometric, weights T2–8, earlier = better (~1.51 baseline). Primary lever.
-- **win-by-T12** (~97%) and **TTK** (non-wins penalized at turn 15, ~6.5). Past T12 is ~worthless.
+- **EARLY-WIN SCORE** — geometric, weights T2–8, earlier = better (~1.60 baseline). Primary lever.
+- **win-by-T12** (~97%) and **TTK** (non-wins penalized at turn 15, ~6.4). Past T12 is ~worthless.
 
 ## Sweep flags (defaults in parens)
 `--games N` (30) · `--flip-trials N` (10) · `--seed N` (0) · `--max-turns N` (12) ·
@@ -110,5 +110,5 @@ off / idle; factor that into ETAs and **state an ETA up front for any long run**
 - Verify every change: build + `selftest` + a representative `sweep`; report regressions
   honestly, including the numbers.
 - For risky engine changes, A/B sweep at 1200×8 vs the baseline (~97% win-by-T12 / early-win
-  ~1.51 / TTK ~6.5). Optimize the **early-win score**; guard win-by-T12 ≥ ~95%.
+  ~1.60 / TTK ~6.4). Optimize the **early-win score**; guard win-by-T12 ≥ ~95%.
 - Keep changes surgical; match surrounding Rust style.
