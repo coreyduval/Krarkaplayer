@@ -665,6 +665,7 @@ fn main() {
             sim::ROLLOUT_STEPS.set(arg_val(&args, "--rollout-steps").and_then(|v| v.parse().ok()).unwrap_or(20)).ok();
             planner::RITUAL_PRELUDE.set(args.iter().any(|a| a == "--ritual-prelude")).ok();
             sim::DEAD_HAND_MULL.set(!args.iter().any(|a| a == "--no-dead-hand-mull")).ok();
+            loops::PRE_KRARK_DIG.set(args.iter().any(|a| a == "--precrark-dig")).ok();
             // Verbose single-game log: `krarksim diag --seed N [--luck L] [--max-turns T]`.
             let seed: u64 = arg_val(&args, "--seed").and_then(|v| v.parse().ok()).unwrap_or(0);
             let luck: u64 = arg_val(&args, "--luck").and_then(|v| v.parse().ok()).unwrap_or(0);

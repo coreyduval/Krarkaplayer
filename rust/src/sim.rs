@@ -1783,6 +1783,19 @@ impl<'a> SimGame<'a> {
             let mut h = self.hand.clone();
             h.sort();
             println!("  HAND    : {}", if h.is_empty() { "(empty)".into() } else { h.join(", ") });
+            // Nonland permanents in play (bodies/engines/rocks); a clone shows what it copies. Lands
+            // are summarized by the MANA line below. Sacrificed one-shots (Lotus Petal etc.) excluded.
+            let board: Vec<String> = self
+                .board
+                .iter()
+                .enumerate()
+                .filter(|(i, (n, _))| !self.sacrificed.contains(i) && !is_land_name(n))
+                .map(|(_, (n, cp))| match cp {
+                    Some(t) => format!("{n} (={t})"),
+                    None => n.clone(),
+                })
+                .collect();
+            println!("  BOARD   : {}", if board.is_empty() { "(empty)".into() } else { board.join(", ") });
             let lands = self
                 .board
                 .iter()

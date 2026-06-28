@@ -723,7 +723,20 @@ fn finish_progress(
         || s.has_permanent("Thassa's Oracle")
         || can_escape(s, reg, "Thassa's Oracle");
     if !oracle {
-        if CANTRIP_LOOP.contains(&card) && (s.flips_per_cast(reg) >= 1 || pre_krark_dig()) {
+        // Cantrips dig for value once a Krark body is out (flips multiply each draw). Before that
+        // they normally score 0 — held for the go-off, where they draw many instead of one. EXCEPTION:
+        // genuine mana-screw (no body AND <2 mana sources in play) — then durdling is worse than
+        // spending a cantrip to find a land, so credit the dig to climb out of the screw.
+        let screwed = s.flips_per_cast(reg) < 1
+            && s.battlefield
+                .iter()
+                .filter(|p| crate::tables::mana_source(p.effective_name()).is_some())
+                .count()
+                < 2
+            // ...and no land/rock in hand to fix it naturally. Otherwise it's just a normal early
+            // turn (you'll add mana next turn), and the cantrip is worth more held for the go-off.
+            && !s.hand.iter().any(|c| crate::tables::mana_source(c).is_some());
+        if CANTRIP_LOOP.contains(&card) && (s.flips_per_cast(reg) >= 1 || pre_krark_dig() || screwed) {
             return library_reduction(card) as f64 * e_effect_resolutions * DIG_WEIGHT;
         }
         return 0.0;
