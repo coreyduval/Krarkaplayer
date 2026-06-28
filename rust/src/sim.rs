@@ -1591,6 +1591,9 @@ impl<'a> SimGame<'a> {
                         && !dead.contains(c)
                         && (closing || (state.library.len() as i64 - loops::max_draws(&state, self.reg, c) as i64) >= floor)
                         && (c != "Jeska's Will" || closing)
+                        // Pact of Negation owes {3}{U}{U} next upkeep or you LOSE — so only ever fire
+                        // it as part of a kill (closing), never in ramp where not winning is lethal.
+                        && (c != "Pact of Negation" || closing)
                 })
                 .collect();
             if cands.is_empty() {

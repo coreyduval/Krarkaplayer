@@ -1,8 +1,0 @@
-AGENT B LAUNCH NOTE (user instruction, 2026-06-22):
-
-A win-rate REGRESSION from Agent B's legality fixes is EXPECTED and ACCEPTABLE.
-Correct legality fixes remove illegal lines that were inflating wins, so win% may drop. That is the point.
-
-=> Agent B must KEEP clear-cut, Scryfall-confirmed legality fixes EVEN IF the win rate goes down.
-=> Only REVERT a change if it breaks the BUILD or the TEST SUITE (technically broken), NEVER merely because win% dropped.
-=> Report the before/after win-rate delta as a result; do not optimize to preserve wins.

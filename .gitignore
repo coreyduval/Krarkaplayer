@@ -9,3 +9,17 @@ __pycache__/
 
 # deprecated root-level Python engine (Rust is the working version)
 /*.py
+
+# Local-only: original decklist snapshot, overnight analysis logs, legacy py-parity goldens
+/original decklist/
+/overnight/
+rust/overnight/
+rust/verify/
+
+# Local scratch: A/B sweep outputs + run scripts (keep the registry)
+rust/*.txt
+!rust/krarkashima.txt
+rust/*.sh
+
+# Local Claude Code config
+.claude/settings.local.json
