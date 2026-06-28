@@ -1555,7 +1555,13 @@ impl<'a> SimGame<'a> {
                     || state.has_permanent("Dualcaster Mage");
                 let shim = state.hand.iter().any(|c| matches!(c.as_str(), "Twinflame" | "Heat Shimmer"));
                 let win_path = closing || payoff_in_hand || (dc && shim);
+                // Only crack when genuinely FLOODED — a land surplus, not mana-screw. `cands.is_empty()`
+                // also fires when the hand is full of spells you simply can't afford yet (early/screwed);
+                // saccing your only/2nd land then is a blunder (it cripples development to draw one card).
+                // Require >=3 lands in play so cracking leaves a functional >=2-land base.
+                let lands_in_play = state.battlefield.iter().filter(|p| is_land_name(&p.name)).count();
                 let can_crack = !win_path
+                    && lands_in_play >= 3
                     && (state.library.len() as i64) > floor
                     && state.mana.total() >= 1
                     && state.battlefield.iter().any(|p| p.name == "Fiery Islet");
