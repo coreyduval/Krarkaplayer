@@ -323,7 +323,43 @@ pub fn winning_payoff(s: &GameState, reg: &Registry, payoffs: &[&str], need_life
             return Some("Brain Freeze".to_string());
         }
     }
+    // Dualcaster Mage + Twinflame/Heat Shimmer = infinite hasty attackers (Dualcaster has flash:
+    // cast a shimmer, flash Dualcaster in response copying it, the token Dualcaster re-copies the
+    // shimmer, ad infinitum). The deterministic kill search catches this via detect_loops, but the
+    // ROLLOUT only consults winning_payoff — so without this it keeps digging (and self-mills the
+    // combo away) on a board that's already lethal. Mirror detect_loops's confirmed condition.
+    if dualcaster_shimmer_lethal(s, reg) {
+        return Some("combat".to_string());
+    }
     None
+}
+
+/// True if Dualcaster Mage + a Twinflame/Heat Shimmer can fire the infinite-hasty-attackers combo
+/// right now: two Dualcaster bodies already (loop established), or Dualcaster in hand with a shimmer
+/// in hand (or escapable) and mana for both. Lean inline mirror of detect_loops's confirmed branch
+/// for the rollout's hot path (full Gale/Breach routes are re-verified by the commit-time solve).
+fn dualcaster_shimmer_lethal(s: &GameState, reg: &Registry) -> bool {
+    if s.battlefield.iter().filter(|p| p.effective_name() == "Dualcaster Mage").count() >= 2 {
+        return true;
+    }
+    // Accessible to cast this turn: hand, Jeska's-Will exile ("you may play it" -> exiled_play), or
+    // a graveyard escape. exiled_play matters because a deep go-off casts Jeska's Will repeatedly and
+    // can strand a combo piece there — castable, but invisible to a hand-only check.
+    let access = |name: &str| {
+        s.hand.iter().any(|c| c == name)
+            || s.exiled_play.iter().any(|c| c == name)
+            || (s.graveyard.iter().any(|c| c == name) && can_escape(s, reg, name))
+    };
+    if !access("Dualcaster Mage") {
+        return false;
+    }
+    let dc_cost = s.cast_cost(reg, "Dualcaster Mage");
+    ["Twinflame", "Heat Shimmer"].iter().any(|sh| {
+        access(sh) && {
+            let sh_cost = s.cast_cost(reg, sh);
+            s.mana.can_pay(&add_costs(&[sh_cost.as_ref(), dc_cost.as_ref()]))
+        }
+    })
 }
 
 // --------------------------------------------------------------------------- //
@@ -382,10 +418,14 @@ pub fn do_cast<R: Rng + ?Sized>(
 
     let mut choices = Choices::default();
     if card == "Brain Freeze" {
-        let oracle_ready = s.hand.iter().any(|c| c == "Thassa's Oracle")
-            || s.has_permanent("Thassa's Oracle")
-            || can_escape(&s, reg, "Thassa's Oracle");
-        choices.target = Some(if oracle_ready { "self".into() } else { "opponents".into() });
+        // Self-mill (own library -> graveyard) is only correct for the Underworld Breach line, where
+        // it feeds escape fuel + storm. Chasing an Oracle line by self-milling is too greedy — it
+        // buries undrawn combo pieces (e.g. a Twinflame the go-off still needs), which costs more
+        // games than the rare self-mill->Oracle line wins. Default to milling OPPONENTS (toward a
+        // mill-kill); only self-mill when Underworld Breach is in play or in hand.
+        let breach = s.has_permanent("Underworld Breach")
+            || s.hand.iter().any(|c| c == "Underworld Breach");
+        choices.target = Some(if breach { "self".into() } else { "opponents".into() });
     }
     let log = resolve_cast_sample(&mut s, reg, card, rng, &choices, None);
     if source == "gale" {
