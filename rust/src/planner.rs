@@ -61,6 +61,9 @@ pub struct Line {
     pub base: Option<GameState>,
     pub first: Option<(String, String)>,
     pub loop_line: bool,
+    /// Human-readable step-by-step execution of a deterministic kill (combo walkthrough). Empty for
+    /// probabilistic lines (those get the cast-by-cast go-off trace instead).
+    pub walkthrough: Vec<String>,
 }
 
 // --------------------------------------------------------------------------- //
@@ -457,6 +460,7 @@ impl DeterministicKillSearch {
                 kind: "deterministic".into(),
                 p_win: 1.0,
                 detail: kill_detail(&sc, reg, &w.detail),
+                walkthrough: kill_walkthrough(&sc, reg),
                 ..Default::default()
             });
         }
@@ -499,6 +503,94 @@ fn kill_detail(state: &GameState, reg: &Registry, win_detail: &str) -> String {
     } else {
         "guaranteed lethal".to_string()
     }
+}
+
+/// Step-by-step execution narration for a deterministic kill — identifies which combo the won state
+/// holds and walks through how it loops to lethal. Pure exposition for the diag (the engine proves
+/// lethality structurally; this explains the line a human would actually execute).
+fn kill_walkthrough(s: &GameState, reg: &Registry) -> Vec<String> {
+    let access = |n: &str| {
+        s.hand.iter().any(|c| c == n)
+            || s.exiled_play.iter().any(|c| c == n)
+            || s.graveyard.iter().any(|c| c == n)
+    };
+    let shimmer = ["Twinflame", "Molten Duplication"]
+        .into_iter()
+        .find(|sh| access(sh));
+    let bodies = s.krark_bodies(reg);
+    let flips = s.flips_per_cast(reg).max(1);
+    let dualcasters = s
+        .battlefield
+        .iter()
+        .filter(|p| p.effective_name() == "Dualcaster Mage")
+        .count();
+    let mut w = Vec::new();
+
+    // 1) Dualcaster Mage + shimmer -> infinite hasty Dualcaster tokens.
+    if dualcasters >= 2 || (access("Dualcaster Mage") && shimmer.is_some()) {
+        let sh = shimmer.unwrap_or("Twinflame");
+        w.push(format!("Combo: Dualcaster Mage + {sh} → infinite hasty attackers (combat)"));
+        w.push(format!("  1. Cast {sh} targeting a creature you control."));
+        w.push(format!("  2. In response, flash in Dualcaster Mage — its ETB copies the {sh} spell."));
+        w.push(format!("  3. Aim the copy at Dualcaster Mage → a hasty token Dualcaster, whose ETB copies {sh} again."));
+        w.push("  4. Repeat → unbounded hasty Dualcaster tokens → swing for ≥160 → lethal.".into());
+        return w;
+    }
+    // 2) Krark + Sakashima legend-break + shimmer -> infinite hasty Krarks (the namesake).
+    if shimmer.is_some() && s.has_sakashima_break() && bodies >= 1 {
+        let sh = shimmer.unwrap();
+        let steer = if s.has_krarks_thumb() {
+            "Krark's Thumb lets you CHOOSE each flip: take exactly 1 loss, win the rest"
+        } else {
+            "steer to exactly 1 loss, win the rest (reliable at these trigger counts)"
+        };
+        w.push(format!("Combo: Krark + Sakashima legend-break + {sh} → infinite hasty Krarks (combat)"));
+        w.push(format!("  1. Cast {sh} ({{1}}{{R}}) copying Krark — your {flips} Krark triggers flip {flips} coins."));
+        w.push(format!("  2. {steer}: the loss returns {sh} to hand (recast it), each win is a token copy of Krark (hasty)."));
+        w.push("  3. Sakashima's legend-rule break lets every token Krark stick on the battlefield.".into());
+        w.push("  4. A renewable mana source refunds the {1}{R}, so the army grows each iteration, mana-neutral.".into());
+        w.push("  → arbitrarily many hasty Krarks → swing for ≥160 → lethal.".into());
+        return w;
+    }
+    // 3) Krark + Flare of Duplication -> infinite magecraft.
+    if access("Flare of Duplication")
+        && (s.has_permanent("Storm-Kiln Artist") || s.has_permanent("Archmage Emeritus"))
+    {
+        let engine = if s.has_permanent("Storm-Kiln Artist") {
+            "Storm-Kiln Artist makes a Treasure per magecraft → infinite MANA"
+        } else {
+            "Archmage Emeritus draws a card per magecraft → draw your library"
+        };
+        w.push("Combo: Krark + Flare of Duplication → infinite magecraft".to_string());
+        w.push(format!("  1. Cast Flare of Duplication ({{1}}{{R}}{{R}}); win one Krark flip to copy it ({flips} triggers)."));
+        w.push("  2. Aim the copy at the original Flare on the stack — copying doesn't consume it, so it spawns another Flare copy.".into());
+        w.push("  3. Each copy is a magecraft trigger (copies are NOT cast → magecraft, not storm) → unbounded magecraft.".into());
+        w.push(format!("  4. {engine}; recast a spell via Krark to build storm, then Grapeshot / Brain Freeze closes → lethal."));
+        return w;
+    }
+    // 4) Grapeshot storm burn.
+    if access("Grapeshot") {
+        w.push("Combo: Grapeshot storm burn".to_string());
+        w.push(format!("  1. Loop cheap spells with Krark ({flips} triggers/cast: win=copy, lose=return to recast) to pile up storm + magecraft mana."));
+        w.push("  2. Cast Grapeshot — it copies once per spell cast this turn (storm) → ≥160 damage across the pod → lethal.".into());
+        return w;
+    }
+    // 5) Brain Freeze mill.
+    if access("Brain Freeze") {
+        w.push("Combo: Brain Freeze mill".to_string());
+        w.push(format!("  1. Build storm by looping spells with Krark ({flips} triggers/cast)."));
+        w.push("  2. Cast Brain Freeze — mills 3× storm per opponent → decks the pod → lethal.".into());
+        return w;
+    }
+    // 6) Vivi / Urabrask 3-per-cast burn.
+    if s.has_permanent("Vivi Ornitier") || s.has_permanent("Urabrask") {
+        let src = if s.has_permanent("Vivi Ornitier") { "Vivi Ornitier" } else { "Urabrask" };
+        w.push(format!("Combo: {src} burn"));
+        w.push(format!("  1. Each instant/sorcery cast deals damage via {src}; Krark copies multiply it ({flips} triggers/cast)."));
+        w.push("  2. Loop cheap spells (win=copy, lose=return) → damage accumulates past 160 → lethal.".into());
+        return w;
+    }
+    w // empty -> caller falls back to the one-line detail
 }
 
 // canonical hash: a structural digest sufficient for memoization (order-sensitive library/stack,
@@ -616,6 +708,7 @@ impl ProbabilisticPlanner {
                         base: Some(base.clone()),
                         first: Some((card.clone(), source.clone())),
                         loop_line: false,
+                        walkthrough: Vec::new(),
                     };
                 }
             }
@@ -672,6 +765,7 @@ impl ProbabilisticPlanner {
                         base: Some(base.clone()),
                         first: Some((card.clone(), src.to_string())),
                         loop_line: true,
+                        walkthrough: Vec::new(),
                     };
                 }
             }
@@ -779,6 +873,7 @@ impl ProbabilisticPlanner {
                         base: Some(dev_base.clone()),
                         first: Some((r.clone(), "hand".to_string())),
                         loop_line: false,
+                        walkthrough: Vec::new(),
                     };
                 }
             }

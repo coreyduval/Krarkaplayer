@@ -31,6 +31,10 @@ turns, cur = [], None
 opening = win_turn = win_detail = ""
 in_goff = False
 goff_hdr = ""
+# Deterministic-kill detail block (SETUP actions + KILL-LINE walkthrough + final board).
+seen_win = False
+win_mode = None
+win_setup, win_kill, win_board = [], [], ""
 
 def fresh(n):
     return dict(n=n, hand="", draws=[], land="", single=[], dev=collections.OrderedDict(),
@@ -46,8 +50,21 @@ for ln in raw:
         in_goff = False
     elif "=== WIN" in ln:
         win_turn = re.search(r"turn (\d+)", ln).group(1)
+        seen_win = True
     elif (s.startswith("[P(win)") or s.startswith("[KILL]")) and not win_detail:
         win_detail = s
+    elif seen_win and s.startswith("SETUP"):
+        win_mode = "setup"
+    elif seen_win and s.startswith("KILL-LINE"):
+        win_mode = "kill"
+    elif seen_win and s.startswith("BOARD"):
+        win_board = s.split(":", 1)[1].strip(); win_mode = None
+    elif seen_win and s.startswith(("ZONES", "PAYOFFS", "COMBO", "MANA-ENG", "BURN", "GY(", "HAND")):
+        win_mode = None
+    elif seen_win and win_mode == "setup" and s.startswith("-"):
+        win_setup.append(s.lstrip("- ").strip())
+    elif seen_win and win_mode == "kill" and s:
+        win_kill.append(ln.rstrip())  # preserve walkthrough indentation
     elif s.startswith("GO-OFF  :"):
         in_goff = True
         goff_hdr = s.split(":", 1)[1].strip()
@@ -115,9 +132,18 @@ for t in turns:
 
 if win_turn:
     print(f"\nWin — turn {win_turn}: {win_detail}")
-    goff = next((t['goff'] for t in turns if t.get('goff')), None)
-    if goff:
-        payoff = goff[0][0]
-        ratios = ", ".join(f"{w}/{f}" for _, w, f in goff)
-        print(f"Go-off: {goff_hdr}")
-        print(f"  {payoff} x{len(goff)} — flips: {ratios}")
+    if win_kill:
+        # Deterministic kill: show the full combo walkthrough (more detail than the per-turn rows).
+        if win_setup:
+            print(f"Setup: {' · '.join(win_setup)}")
+        for line in win_kill:
+            print(line)
+        if win_board:
+            print(f"Board at kill: {win_board}")
+    else:
+        goff = next((t['goff'] for t in turns if t.get('goff')), None)
+        if goff:
+            payoff = goff[0][0]
+            ratios = ", ".join(f"{w}/{f}" for _, w, f in goff)
+            print(f"Go-off: {goff_hdr}")
+            print(f"  {payoff} x{len(goff)} — flips: {ratios}")

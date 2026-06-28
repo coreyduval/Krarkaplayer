@@ -737,10 +737,21 @@ fn main() {
                         format!("P(win)={:.3}", line.p_win)
                     };
                     println!("  [{head}] {}", line.detail);
-                    for a in &line.actions {
-                        match &a.card {
-                            Some(c) => println!("    - {}:{}", a.kind, c),
-                            None => println!("    - {}", a.kind),
+                    if !line.actions.is_empty() {
+                        println!("  SETUP   :");
+                        for a in &line.actions {
+                            match &a.card {
+                                Some(c) => println!("    - {}:{}", a.kind, c),
+                                None => println!("    - {}", a.kind),
+                            }
+                        }
+                    }
+                    // Deterministic kills get a step-by-step combo walkthrough (probabilistic lines get
+                    // the cast-by-cast go-off trace below instead).
+                    if !line.walkthrough.is_empty() {
+                        println!("  KILL-LINE :");
+                        for step in &line.walkthrough {
+                            println!("    {step}");
                         }
                     }
                     // Go-off VARIANCE: re-roll the committed go-off independently to show a TYPICAL
