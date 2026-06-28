@@ -83,10 +83,10 @@ const CANTRIP_LOOP: &[&str] = &[
     "Borne Upon a Wind", "Opt", "Consider", "Serum Visions", "Preordain",
     "Overmaster", "Expedite", "Might of the Meek", "Heroes' Hangout",
     "Crimson Wisps", "Renegade Tactics", "Accelerate",
-    // Gamble: 1-mana red tutor that draws+discards a card — loops for dig value off a per-cast
-    // engine like the other cantrips. Its random discard is bounded: once Thassa's Oracle is
-    // found, finish_progress switches to the mill/win branch instead of looping Gamble further.
-    "Gamble",
+    // NOTE: Gamble is deliberately NOT here. It's a tutor with a RANDOM-discard cost, not a free
+    // loop cantrip — looping it repeatedly random-discards key cards (Grapeshot, doublers). The old
+    // "bounded by finding Thassa's Oracle" justification died when Oracle was cut. Gamble is valued
+    // as a one-shot tutor in develop_score instead: Gamble once for the best piece, then cast it.
 ];
 // Loopable counters/instants: cast for magecraft/storm value off a per-cast engine. Free ones
 // (Pact / Fierce Guardianship / Deflecting Swat / Mogg Salvage) loop for 0 mana; the {U} ones

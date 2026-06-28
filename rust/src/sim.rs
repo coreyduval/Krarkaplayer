@@ -1971,7 +1971,11 @@ impl<'a> SimGame<'a> {
             if loops::winning_payoff(&state, self.reg, payoffs, need_life).is_some() {
                 break;
             }
-            if sig(&state) == before {
+            // Retire a cast from this turn's candidate pool when it made no carryover progress, OR
+            // when it's Gamble — a one-shot tutor with a RANDOM-discard cost, not a loop cantrip.
+            // Re-looping Gamble (it returns to hand on a lost Krark flip) just random-discards key
+            // cards (Grapeshot, doublers). Gamble once for the best piece, then move on.
+            if sig(&state) == before || chosen == "Gamble" {
                 dead.insert(chosen);
             }
         }
