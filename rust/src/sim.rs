@@ -2042,13 +2042,22 @@ impl AuditStats {
     }
 }
 
-/// Bucket a winning Line's detail into a win-condition category.
+/// Bucket a winning Line's detail into a win-condition category. (Thassa's Oracle is cut from the
+/// deck — DECK_EXCLUDE — so there is no Oracle bucket; its win path never fires.)
 pub fn classify_wincon(detail: &str) -> &'static str {
     let d = detail;
-    if d.contains("hasty attackers") || d.contains("Dualcaster") || d.contains("Twinflame") || d.contains("Heat Shimmer") {
+    // The Dualcaster+shimmer combo: deterministic kills read "... hasty attackers" / name the pieces;
+    // probabilistic go-offs label the winning payoff the bare string "combat" (winning_payoff) — match
+    // both, plus the raw life-to-0 combat detail, or these all silently fall into "other".
+    if d.contains("combat")
+        || d.contains("hasty attacker")
+        || d.contains("Dualcaster")
+        || d.contains("Twinflame")
+        || d.contains("Heat Shimmer")
+        || d.contains("total damage")
+        || d.contains("life pool")
+    {
         "combat (Dualcaster combo)"
-    } else if d.contains("Oracle") {
-        "Thassa's Oracle (deck-out)"
     } else if d.contains("Grapeshot") {
         "Grapeshot (storm burn)"
     } else if d.contains("Brain Freeze") || d.contains("mill") {

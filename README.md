@@ -23,8 +23,8 @@ deck wins by then. Latest converged baseline, 1200 seeds × 8 flips:
 | Win-turn | mean ~6.2, median **6**, fastest 2 |
 | **Early-win score** (geo, T2–8, earlier = better) | **~1.51** |
 | TTK (non-wins penalized at turn 15) | ~6.5 |
-| Win conditions | other/Oracle ~44% · Dualcaster combat ~26% · Urabrask/Vivi burn ~18% · Brain Freeze mill ~8% · Grapeshot storm-burn ~4% |
-| Engines | ritual/Jeska burst ~31% · Storm-Kiln Artist ~20% · Archmage ~15% · Tavern Scoundrel ~13% · Vivi/Urabrask ~11% · Birgi ~10% |
+| Win conditions | Dualcaster combat ~70% · Urabrask/Vivi burn ~17% · Brain Freeze mill ~8% · Grapeshot storm-burn ~4% |
+| Engines | ritual/Jeska burst ~32% · Storm-Kiln Artist ~19% · Archmage ~16% · Tavern Scoundrel ~14% · Birgi ~10% · Vivi/Urabrask ~9% |
 
 ## Build
 
