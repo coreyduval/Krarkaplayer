@@ -328,10 +328,41 @@ pub fn winning_payoff(s: &GameState, reg: &Registry, payoffs: &[&str], need_life
     // shimmer, ad infinitum). The deterministic kill search catches this via detect_loops, but the
     // ROLLOUT only consults winning_payoff — so without this it keeps digging (and self-mills the
     // combo away) on a board that's already lethal. Mirror detect_loops's confirmed condition.
-    if dualcaster_shimmer_lethal(s, reg) {
+    if dualcaster_shimmer_lethal(s, reg) || krark_shimmer_lethal(s, reg) {
         return Some("combat".to_string());
     }
     None
+}
+
+/// True if the Krark + Sakashima + Twinflame/Heat Shimmer engine makes INFINITE hasty Krarks now:
+/// cast a shimmer at Krark and flip for one LOSS (Krark returns the shimmer to hand) + wins (each
+/// copy a token Krark). Sakashima's legend-rule break lets the tokens stick; a renewable mana source
+/// — a per-cast engine, or a loopable ritual in hand (the Krark return-trick loops it for net mana) —
+/// refunds the {1}{R} recast. Krark's Thumb isn't required; it only makes the 1-loss steer reliable,
+/// and the split self-corrects as the army grows. Army grows unbounded -> lethal combat.
+fn krark_shimmer_lethal(s: &GameState, reg: &Registry) -> bool {
+    // Reliability gate (not a piece requirement): the loop hinges on steering each cast to a 1-loss/
+    // rest-win split. Krark's Thumb makes that near-certain; without it, >=3 Krarks already keeps each
+    // cast >=75% to continue and the split self-corrects as the army grows — so treat it as lethal at
+    // Thumb OR >=3 bodies, and leave the 2-body no-Thumb case to the probabilistic rollout.
+    if !s.has_sakashima_break() || !(s.has_krarks_thumb() || s.krark_bodies(reg) >= 3) {
+        return false;
+    }
+    let sustain = ["Storm-Kiln Artist", "Birgi, God of Storytelling", "Tavern Scoundrel"]
+        .iter()
+        .any(|e| s.has_permanent(e))
+        || ["Brightstone Ritual", "Pyretic Ritual", "Desperate Ritual", "Rite of Flame"]
+            .iter()
+            .any(|r| s.hand.iter().any(|c| c == r));
+    if !sustain {
+        return false;
+    }
+    let access = |name: &str| {
+        s.hand.iter().any(|c| c == name) || s.exiled_play.iter().any(|c| c == name)
+    };
+    ["Twinflame", "Heat Shimmer"]
+        .iter()
+        .any(|sh| access(sh) && s.mana.can_pay(&s.cast_cost(reg, sh)))
 }
 
 /// True if Dualcaster Mage + a Twinflame/Heat Shimmer can fire the infinite-hasty-attackers combo
@@ -1359,6 +1390,32 @@ pub fn detect_loops(state: &GameState, reg: &Registry) -> LoopReport {
             format!("{sh} ({route}) + Dualcaster Mage but not enough mana to start both."),
             format!("need {:?} to initiate; current pool {:?}.", combined, state.mana.slots),
         ));
+    }
+
+    // Krark + Sakashima(break) + a shimmer in hand + a renewable mana source = infinite hasty Krarks
+    // (steer each shimmer cast to one loss -> returns to hand, wins -> token Krarks; the break keeps
+    // them, the mana refunds the recast). Same condition as winning_payoff's krark_shimmer_lethal.
+    let kss_sustain = ["Storm-Kiln Artist", "Birgi, God of Storytelling", "Tavern Scoundrel"]
+        .iter()
+        .any(|e| state.has_permanent(e))
+        || ["Brightstone Ritual", "Pyretic Ritual", "Desperate Ritual", "Rite of Flame"]
+            .iter()
+            .any(|r| state.hand.iter().any(|c| c == r));
+    let kss_shimmer = ["Twinflame", "Heat Shimmer"].iter().find(|sh| {
+        (state.hand.iter().any(|c| &c.as_str() == *sh) || state.exiled_play.iter().any(|c| &c.as_str() == *sh))
+            && state.mana.can_pay(&state.cast_cost(reg, sh))
+    });
+    if state.has_sakashima_break()
+        && (state.has_krarks_thumb() || state.krark_bodies(reg) >= 3)
+        && kss_sustain
+    {
+        if let Some(sh) = kss_shimmer {
+            confirmed.insert("hasty_attackers".to_string());
+            confirmed.extend(engine_tags(state));
+            reasons.push(format!(
+                "{sh} + Krark + Sakashima break + renewable mana — steer each cast to 1 loss (returns it) + wins (token Krarks): infinite hasty Krarks."
+            ));
+        }
     }
 
     let breach = state.has_permanent("Underworld Breach") || state.hand.iter().any(|c| c == "Underworld Breach");

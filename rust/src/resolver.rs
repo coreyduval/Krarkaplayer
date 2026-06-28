@@ -397,11 +397,10 @@ pub fn shimmer_target(state: &GameState, reg: &Registry) -> Option<String> {
             }
         }
     }
-    // (2) flips: a second Krark multiplies every copy/storm — the dominant lever, but legend-gated.
-    if break_present
-        && on_bf.contains(&"Krark, the Thumbless")
-        && state.krark_bodies(reg) < QUASI_BODY_CAP
-    {
+    // (2) flips: a second Krark multiplies every copy/storm — the dominant lever, legend-gated. Only
+    // reached with the Sakashima break, so the token Krarks STICK and the line is the infinite-hasty-
+    // Krark engine — no body cap (bounded only by MAX_FLIPS per cast).
+    if break_present && on_bf.contains(&"Krark, the Thumbless") {
         return Some("Krark, the Thumbless".to_string());
     }
     // (3) deepen the best per-cast engine you can LEGALLY copy — non-legendary first (always sticks),

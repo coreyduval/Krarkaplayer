@@ -35,6 +35,14 @@ const FAST_MANA: &[&str] = &[
     "Lion's Eye Diamond", "Mana Vault", "Mox Amber", "Relic of Legends",
 ];
 const RITUALS: &[&str] = &["Pyretic Ritual", "Desperate Ritual", "Strike It Rich", "Rite of Flame"];
+/// Cantrips that DRAW the top card into hand — i.e. can RETRIEVE a card Mystical Tutor seated on top
+/// this turn. Excludes impulse (Heroes' Hangout) and mill (Brain Freeze), which don't put the top
+/// card in hand. Used to gate Mystical Tutor's value: a seated card you can't draw is stranded.
+const DRAW_OUTLETS: &[&str] = &[
+    "Brainstorm", "Ponder", "Gitaxian Probe", "Peek", "Frantic Search", "Borne Upon a Wind",
+    "Opt", "Consider", "Serum Visions", "Preordain", "Overmaster", "Expedite", "Might of the Meek",
+    "Crimson Wisps", "Renegade Tactics", "Accelerate", "Gamble",
+];
 
 const COMBO_DUALCASTER: &str = "Dualcaster Mage";
 const COMBO_SHIMMERS: &[&str] = &["Twinflame", "Heat Shimmer"];
@@ -181,6 +189,22 @@ pub fn card_value(s: &GameState, reg: &Registry, name: &str, for_tutor: bool) ->
         if is_b {
             score += 5.0;
         }
+    }
+
+    // Mystical Tutor seats the best instant/sorcery on TOP of the library — but it does NOT draw it.
+    // So it's only worth tutoring FOR / casting when there's a draw outlet in hand to pull it THIS
+    // turn; otherwise the seated card is stranded on top until the next draw step (per the pilot:
+    // "if and only if there is a way to draw the card"). Value it at the seated payoff's worth,
+    // discounted for the extra draw + cast it still costs. Without a draw outlet it scores ~0 and the
+    // pilot won't grab it (e.g. Spellseeker correctly prefers immediate mana then).
+    if name == "Mystical Tutor" && s.hand.iter().any(|c| DRAW_OUTLETS.contains(&c.as_str())) {
+        let best_seat = s
+            .library
+            .iter()
+            .filter(|c| c.as_str() != "Mystical Tutor" && reg.get(c).is_instant_or_sorcery())
+            .map(|c| card_value(s, reg, c, true))
+            .fold(0.0f64, f64::max);
+        score += best_seat * 0.6;
     }
 
     // Tie-breaker: among cards of equal role value, prefer the CHEAPER one — better tempo,
