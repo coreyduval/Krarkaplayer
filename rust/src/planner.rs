@@ -81,7 +81,7 @@ pub fn tap_out(state: &GameState) -> GameState {
         if nm == "Mox Amber" && !legend {
             continue; // dead without a legendary creature
         }
-        if let Some((mode, produced)) = mana_source(nm) {
+        if let Some((mode, produced)) = s.battlefield[i].mana_produced() {
             if mode == SrcMode::Tap && !s.battlefield[i].tapped {
                 let life = life_per_tap(nm);
                 s.battlefield[i].tapped = true;
@@ -103,7 +103,7 @@ pub fn tap_out(state: &GameState) -> GameState {
 
 pub fn apply_mana_ability_reg(s: &mut GameState, reg: &Registry, idx: usize) {
     let name = s.battlefield[idx].effective_name().to_string();
-    let (mode, produced) = mana_source(&name).unwrap();
+    let (mode, produced) = s.battlefield[idx].mana_produced().unwrap();
     match mode {
         SrcMode::Tap => s.battlefield[idx].tapped = true,
         SrcMode::TapCreature => {

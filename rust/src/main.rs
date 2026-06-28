@@ -21,9 +21,11 @@ mod cards;
 mod game_state;
 mod loops;
 mod planner;
+mod play;
 mod resolver;
 mod sim;
 mod tables;
+mod web;
 mod win;
 mod wishlist;
 
@@ -658,6 +660,38 @@ fn main() {
             let cuts = arg_vals(&args, "--cut");
             let adds = arg_vals(&args, "--add");
             run_audit(&reg, games, trials, max_turns, seed_base, send_gate, fast_mull, cuts, adds);
+        }
+        "serve" => {
+            // Web UI: `krarksim serve [--port N] [--seed N] <mull flags>`. Opens a local browser app.
+            sim::MULL_CFG.set(parse_mull_cfg(&args)).ok();
+            sim::DEV_CAP.set(arg_val(&args, "--dev-cap").and_then(|v| v.parse().ok()).unwrap_or(12)).ok();
+            sim::ROLLOUT_STEPS.set(arg_val(&args, "--rollout-steps").and_then(|v| v.parse().ok()).unwrap_or(20)).ok();
+            planner::RITUAL_PRELUDE.set(args.iter().any(|a| a == "--ritual-prelude")).ok();
+            sim::DEAD_HAND_MULL.set(!args.iter().any(|a| a == "--no-dead-hand-mull")).ok();
+            loops::AGGRO_CANTRIPS.set(!args.iter().any(|a| a == "--no-aggro-cantrips")).ok();
+            loops::PRE_KRARK_DIG.set(args.iter().any(|a| a == "--precrark-dig")).ok();
+            resolver::SHIMMER_TOKENS.set(!args.iter().any(|a| a == "--no-shimmer-tokens")).ok();
+            let port: u16 = arg_val(&args, "--port").and_then(|v| v.parse().ok()).unwrap_or(8088);
+            let seed: u64 = arg_val(&args, "--seed").and_then(|v| v.parse().ok()).unwrap_or(0);
+            let deck = build_deck(&reg, 6, 8);
+            web::serve(reg, deck, port, seed);
+        }
+        "play" => {
+            // Interactive REPL: `krarksim play --seed N [--luck L] [--max-turns T] <mull flags>`.
+            sim::MULL_CFG.set(parse_mull_cfg(&args)).ok();
+            sim::DEV_CAP.set(arg_val(&args, "--dev-cap").and_then(|v| v.parse().ok()).unwrap_or(12)).ok();
+            sim::ROLLOUT_STEPS.set(arg_val(&args, "--rollout-steps").and_then(|v| v.parse().ok()).unwrap_or(20)).ok();
+            planner::RITUAL_PRELUDE.set(args.iter().any(|a| a == "--ritual-prelude")).ok();
+            sim::DEAD_HAND_MULL.set(!args.iter().any(|a| a == "--no-dead-hand-mull")).ok();
+            loops::AGGRO_CANTRIPS.set(!args.iter().any(|a| a == "--no-aggro-cantrips")).ok();
+            loops::PRE_KRARK_DIG.set(args.iter().any(|a| a == "--precrark-dig")).ok();
+            resolver::SHIMMER_TOKENS.set(!args.iter().any(|a| a == "--no-shimmer-tokens")).ok();
+            let seed: u64 = arg_val(&args, "--seed").and_then(|v| v.parse().ok()).unwrap_or(0);
+            let luck: u64 = arg_val(&args, "--luck").and_then(|v| v.parse().ok()).unwrap_or(0);
+            let max_turns: i64 = arg_val(&args, "--max-turns").and_then(|v| v.parse().ok()).unwrap_or(12);
+            let deck = build_deck(&reg, 6, 8);
+            let fast_mull = !args.iter().any(|a| a == "--no-fast-mull");
+            play::run_play(&reg, &deck, seed, luck, max_turns, fast_mull);
         }
         "diag" => {
             sim::MULL_CFG.set(parse_mull_cfg(&args)).ok();

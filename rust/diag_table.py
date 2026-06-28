@@ -25,7 +25,7 @@ raw = subprocess.run(
 CAST = re.compile(r"^\s*CAST\s*:\s*(.+?)\s*\(from (\w+)\)")
 DEV = re.compile(r"^\s*DEV\s*\d+:\s*(.+?)(?:\s*\((\d+)/(\d+)\))?\s*$")
 FLIP = re.compile(r"^\s*FLIP\s*\d+:\s*(.+?)\s*\((\d+)/(\d+)\)")
-DEPLOY = re.compile(r"^\s*DEPLOY\s*:\s*(.+?)\s*\(engine permanent\)")
+DEPLOY = re.compile(r"^\s*DEPLOY\s*:\s*(.+?)\s*\((engine permanent|from (\w+))\)")
 
 turns, cur = [], None
 opening = win_turn = win_detail = ""
@@ -65,7 +65,10 @@ for ln in raw:
     elif (m := CAST.match(ln)):
         cur["single"].append(f"{m.group(1)} [{m.group(2)}]")
     elif (m := DEPLOY.match(ln)):
-        cur["deploy"] += [x.strip() for x in m.group(1).split(",")]
+        if m.group(3):  # "from <zone>" deploy (e.g. Sakashima from command) — tag like a CAST
+            cur["single"].append(f"{m.group(1)} [{m.group(3)}]")
+        else:           # engine-permanent deploy — keep grouped under "deploy ..."
+            cur["deploy"] += [x.strip() for x in m.group(1).split(",")]
     elif s.startswith("DUG"):
         cur["draws"] += [x.strip() for x in s.split(":", 1)[1].split(",") if x.strip()]
     elif s.startswith("EXILE") and "play-this-turn" in s:

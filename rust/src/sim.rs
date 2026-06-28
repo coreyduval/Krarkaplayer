@@ -276,6 +276,14 @@ fn is_etb_tutor(name: &str) -> bool {
     )
 }
 
+/// Opponent removal kinds for the interactive `play` mode (see `SimGame::remove_permanent`).
+#[derive(Clone, Copy, PartialEq, Eq)]
+pub enum Removal {
+    Destroy,
+    Exile,
+    Bounce,
+}
+
 pub struct SimGame<'a> {
     reg: &'a Registry,
     win_threshold: f64,
@@ -311,12 +319,20 @@ pub struct SimGame<'a> {
     pub dead: bool,         // set when a fatal fizzle happens (no second chance — dead next turn)
     pub on_the_draw: bool,  // 4-player pod: random seat, so 3/4 of games we're on the draw (T1 draw)
     pub sacrificed: HashSet<usize>, // board idxs spent as one-shot sac sources (Lotus Petal): gone for good
+    chrome_imprint: HashMap<usize, String>, // board idx -> Chrome Mox imprint color tag ("R"/"U"/"*")
 
     // Source-utilization audit (opt-in; zero cost when audit_on is false).
     audit_on: bool,
     audit: AuditStats,
     audit_turn: Vec<(String, i64, bool)>, // sources tapped this turn: (name, units, is_oneshot)
     audit_turn_produced: i64,
+
+    // Interactive `play` mode only: a live human opponent consulted on worth-countering casts. None
+    // for every goldfish mode (sweep/audit/diag) — the optimizer's clone-based rollouts never see it.
+    opponent: Option<Box<dyn crate::play::Opponent>>,
+    // Interactive `play` mode: set once the opponent has stopped a kill this turn, so the bot doesn't
+    // re-present the same lethal at every later try_win in the turn (one kill-defense window per turn).
+    kill_stopped_this_turn: bool,
 }
 
 impl<'a> SimGame<'a> {
@@ -365,10 +381,13 @@ impl<'a> SimGame<'a> {
             dead: false,
             on_the_draw,
             sacrificed: HashSet::new(),
+            chrome_imprint: HashMap::new(),
             audit_on: false,
             audit: AuditStats::default(),
             audit_turn: Vec::new(),
             audit_turn_produced: 0,
+            opponent: None,
+            kill_stopped_this_turn: false,
         };
         g.london_mulligan(deck, &mut shuffle_rng);
         g
@@ -396,6 +415,81 @@ impl<'a> SimGame<'a> {
 
     pub fn set_check_first(&mut self, b: bool) {
         self.check_kill_first = b;
+    }
+
+    /// Attach a live opponent for the interactive `play` mode. With one set, worth-countering casts
+    /// during the turn pause for a counter window (see `develop` / `try_cast`).
+    pub fn set_opponent(&mut self, o: Box<dyn crate::play::Opponent>) {
+        self.opponent = Some(o);
+    }
+
+    /// Non-sacrificed permanents on the board, with their board index, for the interactive
+    /// `play` mode's removal window. Returns (idx, name, copy_of, is_land).
+    pub fn play_perms(&self) -> Vec<(usize, String, Option<String>, bool)> {
+        self.board
+            .iter()
+            .enumerate()
+            .filter(|(i, _)| !self.sacrificed.contains(i))
+            .map(|(i, (n, cp))| (i, n.clone(), cp.clone(), is_land_name(n)))
+            .collect()
+    }
+
+    /// A structured snapshot of the bot's public board state for the web UI panel.
+    pub fn game_view(&self) -> crate::play::GameView {
+        let perms = self.play_perms();
+        let lands = perms.iter().filter(|(_, _, _, is_land)| *is_land).count();
+        let board = perms
+            .into_iter()
+            .map(|(idx, name, copy_of, is_land)| crate::play::PermView { idx, name, copy_of, is_land })
+            .collect();
+        let mut hand = self.hand.clone();
+        hand.sort();
+        crate::play::GameView {
+            turn: self.turn,
+            lands,
+            treasures: self.treasures,
+            our_life: self.our_life,
+            opp_life: self.opponent_life.iter().sum(),
+            board,
+            hand,
+        }
+    }
+
+    /// Opponent removal in the interactive `play` mode: pull a permanent off the board and send it
+    /// to the graveyard (destroy), to exile, or back to hand / command zone (bounce). Reconciles the
+    /// `tapped`/`sacrificed` index sets (an index shift after `Vec::remove`). A bounced commander
+    /// (Krark/Sakashima) returns to the command zone; anything else (clones included) goes to hand.
+    /// Returns the removed permanent's printed name, or None if `idx` is out of range.
+    pub fn remove_permanent(&mut self, idx: usize, kind: Removal) -> Option<String> {
+        if idx >= self.board.len() {
+            return None;
+        }
+        let (name, _copy_of) = self.board.remove(idx);
+        // Vec::remove shifts every higher index down by one — rebuild the index sets to match.
+        let reindex = |set: &HashSet<usize>| -> HashSet<usize> {
+            set.iter()
+                .filter(|&&i| i != idx)
+                .map(|&i| if i > idx { i - 1 } else { i })
+                .collect()
+        };
+        self.tapped = reindex(&self.tapped);
+        self.sacrificed = reindex(&self.sacrificed);
+        // Vivi's accumulated power lives on the body — it leaves with it.
+        if name == "Vivi Ornitier" {
+            self.vivi_power = 0;
+        }
+        match kind {
+            Removal::Destroy => self.graveyard.push(name.clone()),
+            Removal::Exile => { /* exiled — gone for good */ }
+            Removal::Bounce => {
+                if name == "Krark, the Thumbless" || name == "Sakashima of a Thousand Faces" {
+                    self.command_zone.push(name.clone());
+                } else {
+                    self.hand.push(name.clone());
+                }
+            }
+        }
+        Some(name)
     }
 
     /// Verbose-mode opening summary (kept hand / mulligans / library size).
@@ -578,6 +672,21 @@ impl<'a> SimGame<'a> {
             .map(|c| (*c).clone())
     }
 
+    /// Color tag Chrome Mox taps for after imprinting `name`, derived from its pips (cost +
+    /// Phyrexian colored halves): "R"/"U" mono, "*" if both colors (gold), None if colorless.
+    fn imprint_color_tag(&self, name: &str) -> Option<String> {
+        let cd = self.reg.get(name);
+        let has = |k: &str| {
+            cd.cost.get(k).copied().unwrap_or(0) > 0 || cd.phyrexian.get(k).copied().unwrap_or(0) > 0
+        };
+        match (has("R"), has("U")) {
+            (true, true) => Some("*".to_string()),
+            (true, false) => Some("R".to_string()),
+            (false, true) => Some("U".to_string()),
+            (false, false) => None,
+        }
+    }
+
     /// Is a legendary creature in play? (Mox Amber needs one to make mana.) The deck's relevant
     /// legendary creatures are the commanders — Krark, Sakashima, and clones copying Krark.
     fn has_legend_in_play(&self) -> bool {
@@ -635,7 +744,10 @@ impl<'a> SimGame<'a> {
             return; // e.g. Mox Amber with no legend in play → produces nothing, stays untapped
         }
         let name = self.board[idx].0.clone();
-        if let Some((mode, produced)) = mana_source(&name) {
+        if let Some((mode, mut produced)) = mana_source(&name) {
+            if let Some(tag) = self.chrome_imprint.get(&idx) {
+                produced = crate::tables::chrome_produced(tag);
+            }
             if mode == SrcMode::TapCreature {
                 // Tapping an untapped creature is part of the cost. Gated by
                 // untapped_sources(), so a creature is available here.
@@ -672,7 +784,10 @@ impl<'a> SimGame<'a> {
             return true;
         }
         for (idx, _) in self.untapped_sources() {
-            if let Some((_, produced)) = mana_source(&self.board[idx].0) {
+            if let Some((_, mut produced)) = mana_source(&self.board[idx].0) {
+                if let Some(tag) = self.chrome_imprint.get(&idx) {
+                    produced = crate::tables::chrome_produced(tag);
+                }
                 temp.add_cost(&produced);
             }
             if temp.can_pay(cost) {
@@ -840,6 +955,33 @@ impl<'a> SimGame<'a> {
                 }
             }
         }
+        // Interactive play: a worth-countering permanent (engine / commander / clone) gets a counter
+        // window before it resolves onto the board. The bot can fight back; if the spell ends up
+        // countered it goes to the graveyard (or back to the command zone for a commander) and never
+        // hits the battlefield or fires its ETB. `card` is already off the hand and its mana is paid.
+        if self.opponent.is_some() && crate::play::worth_countering(card, self.reg) {
+            let mut opp = self.opponent.take().unwrap();
+            let mut gs = self.build_state(pool);
+            let countered =
+                crate::play::handle_cast(&mut gs, self.reg, &mut *opp, &mut self.dev_rng, card);
+            self.opponent = Some(opp);
+            // Adopt any counters the bot spent fighting back.
+            self.hand = gs.hand;
+            self.graveyard = gs.graveyard;
+            self.our_life = gs.our_life;
+            *pool = gs.mana;
+            if countered {
+                if card == "Krark, the Thumbless" || card == "Sakashima of a Thousand Faces" {
+                    self.command_zone.push(card.to_string());
+                } else {
+                    self.graveyard.push(card.to_string());
+                }
+                if self.verbose {
+                    println!("  COUNTERED : {card} (fizzled before resolving)");
+                }
+                return true;
+            }
+        }
         if SAC_ON_PLAY.contains(&card) {
             if let Some((_, produced)) = mana_source(card) {
                 pool.add_cost(&produced);
@@ -852,6 +994,13 @@ impl<'a> SimGame<'a> {
         } else {
             let cp = self.copy_target(card);
             let new_idx = self.board.len();
+            // Chrome Mox taps only for the exiled card's color(s): record the color tag in a side-map
+            // keyed by board idx (NOT the aux slot, which other code reads as a copy-target name).
+            if card == "Chrome Mox" {
+                if let Some(tag) = chrome_imprint.as_deref().and_then(|t| self.imprint_color_tag(t)) {
+                    self.chrome_imprint.insert(new_idx, tag);
+                }
+            }
             self.board.push((card.to_string(), cp.clone()));
             // Auto-tap a freshly deployed mana source so its mana is available this turn — EXCEPT
             // dormant rocks (Mana Vault / Grim Monolith): they don't untap, so cracking on deploy
@@ -893,6 +1042,7 @@ impl<'a> SimGame<'a> {
                 summoning_sick: false,
                 is_token: false,
                 temporary: false,
+                imprint: self.chrome_imprint.get(&idx).cloned(),
             })
             .collect();
         GameState {
@@ -958,7 +1108,10 @@ impl<'a> SimGame<'a> {
             if self.tapped.contains(&i) || self.sacrificed.contains(&i) {
                 continue;
             }
-            if let Some((_, prod)) = mana_source(n) {
+            if let Some((_, mut prod)) = mana_source(n) {
+                if let Some(tag) = self.chrome_imprint.get(&i) {
+                    prod = crate::tables::chrome_produced(tag);
+                }
                 wild += prod.get("*").copied().unwrap_or(0);
                 for (k, c) in COLORS.iter().enumerate() {
                     have[k] += prod.get(*c).copied().unwrap_or(0);
@@ -1014,7 +1167,10 @@ impl<'a> SimGame<'a> {
             if self.tapped.contains(&i) || self.sacrificed.contains(&i) {
                 continue;
             }
-            if let Some((_, prod)) = mana_source(n) {
+            if let Some((_, mut prod)) = mana_source(n) {
+                if let Some(tag) = self.chrome_imprint.get(&i) {
+                    prod = crate::tables::chrome_produced(tag);
+                }
                 wild += prod.get("*").copied().unwrap_or(0);
                 for (k, c) in COLORS.iter().enumerate() {
                     have[k] += prod.get(*c).copied().unwrap_or(0);
@@ -1247,6 +1403,10 @@ impl<'a> SimGame<'a> {
 
     fn try_win(&mut self, pool: &ManaPool, det: &DeterministicKillSearch, prob: &mut ProbabilisticPlanner) -> (Option<Line>, Line, GameState) {
         let state = self.build_state(pool);
+        // Interactive play: the opponent already stopped a kill this turn — don't re-present lethal.
+        if self.kill_stopped_this_turn {
+            return (None, Line::default(), state);
+        }
         // #3: skip a state already proven no-win this turn (identical signature).
         let sig = self.win_sig(&state);
         if self.scan_nowin.contains(&sig) {
@@ -1302,8 +1462,31 @@ impl<'a> SimGame<'a> {
         }
     }
 
+    /// Interactive play: the bot has assembled lethal. Let the opponent try to stop it (the bot
+    /// fights back with its floated go-off mana + counters). Returns true if the kill survives. With
+    /// no opponent attached (goldfish modes) the kill always stands. Latches `kill_stopped_this_turn`
+    /// on a successful stop so the bot doesn't re-present the same kill later this turn.
+    fn defend_kill_window(&mut self, war_base: &GameState, desc: &str) -> bool {
+        let mut opp = match self.opponent.take() {
+            Some(o) => o,
+            None => return true,
+        };
+        let mut gs = crate::planner::tap_out(war_base);
+        let survived = crate::play::defend_kill(&mut gs, self.reg, &mut *opp, &mut self.dev_rng, desc);
+        self.opponent = Some(opp);
+        if !survived {
+            self.kill_stopped_this_turn = true;
+        }
+        survived
+    }
+
     fn declare(&mut self, line: &Line, state: &GameState) -> Option<Line> {
         if line.p_win >= 1.0 {
+            // Deterministic kill (combat combo, guaranteed loop): the opponent still gets a window.
+            let war = line.base.clone().unwrap_or_else(|| state.clone());
+            if !self.defend_kill_window(&war, &line.detail) {
+                return None;
+            }
             return Some(line.clone());
         }
         // A ritual prelude's fizzle is benign — the payoff is never committed, the ritual just
@@ -1324,6 +1507,10 @@ impl<'a> SimGame<'a> {
                     self.verbose, // diag: trace each turn's actual go-off attempt (fizzle or win)
                 );
                 if proven {
+                    // Interactive play: one window for the opponent to stop the kill before it lands.
+                    if !self.defend_kill_window(base, &line.detail) {
+                        return None;
+                    }
                     // proven -> accurate number via full solve (no threshold early-stop)
                     let det = DeterministicKillSearch::default();
                     let mut full = ProbabilisticPlanner::default();
@@ -1541,6 +1728,7 @@ impl<'a> SimGame<'a> {
                     summoning_sick: false,
                     is_token: false,
                     temporary: false,
+                    imprint: None,
                 });
                 if self.verbose {
                     println!("    DEPLOY  : {body} (from command)");
@@ -1667,11 +1855,42 @@ impl<'a> SimGame<'a> {
             let before = sig(&state);
             let mut nxt: Option<(GameState, ResolveLog)> = None;
             let mut chosen = String::new();
-            for (card, source) in &cands {
-                if let Some(r) = loops::do_cast(&state, self.reg, card, source, &mut self.dev_rng, payoffs) {
-                    nxt = Some(r);
-                    chosen = card.clone();
-                    break;
+            if self.opponent.is_some() {
+                // Interactive play: pick the first castable candidate, give the opponent a counter
+                // window on it, and only re-cast (commit) if it survives. The double do_cast advances
+                // the dev RNG — fine, since play mode isn't seed-reproducible (goldfish modes, with no
+                // opponent, take the original single-cast path below and stay byte-identical).
+                let mut pick: Option<(String, String)> = None;
+                for (card, source) in &cands {
+                    if loops::do_cast(&state, self.reg, card, source, &mut self.dev_rng, payoffs).is_some() {
+                        pick = Some((card.clone(), source.clone()));
+                        break;
+                    }
+                }
+                if let Some((card, source)) = pick {
+                    let mut opp = self.opponent.take().unwrap();
+                    let countered =
+                        crate::play::handle_cast(&mut state, self.reg, &mut *opp, &mut self.dev_rng, &card);
+                    self.opponent = Some(opp);
+                    if countered {
+                        if let Some(p) = state.hand.iter().position(|c| *c == card) {
+                            state.hand.remove(p);
+                        }
+                        state.graveyard.push(card.clone());
+                        dead.insert(card);
+                        recompute(&state, &mut scores, self.reg);
+                        continue;
+                    }
+                    nxt = loops::do_cast(&state, self.reg, &card, &source, &mut self.dev_rng, payoffs);
+                    chosen = card;
+                }
+            } else {
+                for (card, source) in &cands {
+                    if let Some(r) = loops::do_cast(&state, self.reg, card, source, &mut self.dev_rng, payoffs) {
+                        nxt = Some(r);
+                        chosen = card.clone();
+                        break;
+                    }
                 }
             }
             let (mut nstate, log) = match nxt {
@@ -1773,6 +1992,10 @@ impl<'a> SimGame<'a> {
         self.exile_gas = HashMap::new();
         self.played_land = false;
         self.vivi_mana_used = false; // Vivi's {0} ability recharges each turn
+        self.kill_stopped_this_turn = false; // opponent gets one kill-defense window per turn
+        if let Some(o) = self.opponent.as_mut() {
+            o.begin_turn(); // clear the per-turn "no responses" latch
+        }
         if self.verbose {
             println!("\n=== TURN {} ===", self.turn);
         }

@@ -272,6 +272,9 @@ pub struct Permanent {
     /// go-off turn they're made. Filtered at the develop copy-back so they never persist to the real
     /// board; permanent tokens (Quasiduplicate) leave this false.
     pub temporary: bool,
+    /// Chrome Mox imprint color tag ("R"/"U"/"*"); None for everything else. Set when Chrome Mox
+    /// resolves so it taps only for the exiled card's color(s) rather than any color.
+    pub imprint: Option<String>,
 }
 
 impl Permanent {
@@ -283,6 +286,7 @@ impl Permanent {
             summoning_sick: true,
             is_token: false,
             temporary: false,
+            imprint: None,
         }
     }
 
@@ -295,6 +299,17 @@ impl Permanent {
     pub fn functions_as<'a>(&self, reg: &'a Registry) -> &'a crate::cards::CardDef {
         reg.get(self.copy_of.as_deref().unwrap_or(&self.name))
     }
+
+    /// Mana this source taps for, honoring per-instance state (Chrome Mox's imprint color).
+    pub fn mana_produced(&self) -> Option<(crate::tables::SrcMode, crate::cards::ManaCost)> {
+        let (mode, produced) = crate::tables::mana_source(self.effective_name())?;
+        if self.name == "Chrome Mox" {
+            if let Some(tag) = &self.imprint {
+                return Some((mode, crate::tables::chrome_produced(tag)));
+            }
+        }
+        Some((mode, produced))
+    }
 }
 
 /// Helper: a Krark body on the battlefield (legend-safe via copy_of).
@@ -306,6 +321,7 @@ pub fn krark_body(name: &str, copy_of: Option<&str>, token: bool) -> Permanent {
         summoning_sick: false,
         is_token: token,
         temporary: false,
+        imprint: None,
     }
 }
 

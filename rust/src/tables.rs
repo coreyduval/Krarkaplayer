@@ -55,6 +55,20 @@ pub fn is_mana_source(name: &str) -> bool {
     mana_source(name).is_some()
 }
 
+/// Chrome Mox taps for one mana of the *imprinted card's* color(s) — not any color. `tag` is the
+/// stored imprint color: "R"/"U" (mono), "*" (gold = U-or-R in this 2-color deck), or anything
+/// else (colorless imprint) → no usable mana.
+pub fn chrome_produced(tag: &str) -> ManaCost {
+    let mut m = ManaCost::new();
+    match tag {
+        "R" | "U" | "*" => {
+            m.insert(tag.to_string(), 1);
+        }
+        _ => {} // colorless imprint → dead source
+    }
+    m
+}
+
 /// Life paid (damage taken) each time this source is tapped for mana.
 pub fn life_per_tap(name: &str) -> i64 {
     match name {

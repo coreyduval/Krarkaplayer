@@ -224,6 +224,7 @@ const ARTIFACTS: &[&str] = &[
     "Lion's Eye Diamond", "Lotus Petal", "Mox Diamond", "Sol Ring",
     "Springleaf Drum", "The One Ring", "Mana Vault", "Mox Amber", "Relic of Legends",
     "Simian Spirit Guide", "Talisman of Creativity", "Grim Monolith",
+    "Roaming Throne", // Artifact Creature — Spirit; also in CREATURES (dual-typed via additive classify)
 ];
 
 fn subtypes_for(name: &str) -> Vec<String> {
@@ -307,20 +308,16 @@ fn classify(name: &str, raw_cost: &str, rules: &str) -> Vec<CardType> {
     if raw_cost == "Land" || raw_cost == "Basic Land" {
         return vec![CardType::Land];
     }
-    if CREATURES.contains(&name) {
-        return vec![CardType::Creature];
-    }
-    if SORCERIES.contains(&name) {
-        return vec![CardType::Sorcery];
-    }
-    if INSTANTS.contains(&name) {
-        return vec![CardType::Instant];
-    }
-    if ENCHANTMENTS.contains(&name) {
-        return vec![CardType::Enchantment];
-    }
-    if ARTIFACTS.contains(&name) {
-        return vec![CardType::Artifact];
+    // Additive: a card can carry multiple types (e.g. an artifact creature like Roaming Throne),
+    // so check every overlay list rather than early-returning on the first match.
+    let mut types = Vec::new();
+    if CREATURES.contains(&name) { types.push(CardType::Creature); }
+    if SORCERIES.contains(&name) { types.push(CardType::Sorcery); }
+    if INSTANTS.contains(&name) { types.push(CardType::Instant); }
+    if ENCHANTMENTS.contains(&name) { types.push(CardType::Enchantment); }
+    if ARTIFACTS.contains(&name) { types.push(CardType::Artifact); }
+    if !types.is_empty() {
+        return types;
     }
     // last resort: read a leading type line from the rules text.
     for (word, ty) in [

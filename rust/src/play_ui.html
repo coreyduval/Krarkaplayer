@@ -1,0 +1,182 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Play vs the Krarkaplayer</title>
+<style>
+  :root { --bg:#0e1410; --panel:#16201a; --panel2:#1d2a22; --ink:#d7f0d7; --dim:#7fa088;
+          --acc:#6cd66c; --warn:#ff7b5e; --gold:#e8c869; --line:#2c3d31; }
+  * { box-sizing:border-box; }
+  body { margin:0; background:var(--bg); color:var(--ink); font:15px/1.45 ui-monospace,Menlo,Consolas,monospace; }
+  header { padding:10px 14px; background:var(--panel); border-bottom:1px solid var(--line);
+           display:flex; flex-wrap:wrap; gap:10px 18px; align-items:center; position:sticky; top:0; z-index:5; }
+  header h1 { font-size:16px; margin:0; color:var(--acc); letter-spacing:.5px; }
+  .stat { color:var(--dim); } .stat b { color:var(--ink); }
+  main { max-width:880px; margin:0 auto; padding:12px; }
+  .panel { background:var(--panel); border:1px solid var(--line); border-radius:10px; padding:12px; margin-bottom:12px; }
+  .panel h2 { font-size:12px; text-transform:uppercase; letter-spacing:1px; color:var(--dim); margin:0 0 8px; }
+  .chips { display:flex; flex-wrap:wrap; gap:6px; }
+  .chip { background:var(--panel2); border:1px solid var(--line); border-radius:6px; padding:4px 8px; font-size:13px; }
+  .chip.land { color:var(--dim); }
+  .perm { display:flex; flex-wrap:wrap; align-items:center; gap:8px; padding:6px 8px; border:1px solid var(--line);
+          border-radius:8px; background:var(--panel2); margin-bottom:6px; }
+  .perm .nm { flex:1; min-width:140px; }
+  .perm .cp { color:var(--gold); font-size:12px; }
+  .perm.land { opacity:.7; }
+  #log { background:#0a0f0c; border:1px solid var(--line); border-radius:10px; padding:10px;
+         height:46vh; overflow-y:auto; white-space:pre-wrap; font-size:13px; }
+  #log .krark { color:var(--acc); } #log .opp { color:var(--warn); } #log .you { color:var(--gold); }
+  #log .hd { color:var(--dim); } #log .win { color:var(--acc); font-weight:bold; }
+  #action { position:sticky; bottom:0; background:var(--panel); border-top:2px solid var(--acc);
+            padding:12px; box-shadow:0 -6px 14px rgba(0,0,0,.4); }
+  #prompt { margin-bottom:8px; color:var(--ink); }
+  button { font:inherit; cursor:pointer; border:1px solid var(--line); background:var(--panel2); color:var(--ink);
+           border-radius:8px; padding:9px 14px; margin:3px 4px 3px 0; }
+  button.primary { background:var(--acc); color:#06160a; border-color:var(--acc); font-weight:bold; }
+  button.warn { border-color:var(--warn); color:var(--warn); }
+  button.small { padding:5px 9px; font-size:12px; }
+  input[type=text], input[type=number] { font:inherit; background:#0a0f0c; color:var(--ink);
+           border:1px solid var(--line); border-radius:8px; padding:8px; }
+  .muted { color:var(--dim); }
+</style>
+</head>
+<body>
+<header>
+  <h1>🪙 KRARKAPLAYER</h1>
+  <span class="stat">Turn <b id="s-turn">–</b></span>
+  <span class="stat">You <b id="s-opp">160</b></span>
+  <span class="stat">Krark <b id="s-life">40</b></span>
+  <span class="stat">Lands <b id="s-lands">0</b></span>
+  <span class="stat">Treasure <b id="s-tr">0</b></span>
+</header>
+<main>
+  <div class="panel">
+    <h2>Krark's board</h2>
+    <div id="board"><span class="muted">(empty)</span></div>
+  </div>
+  <div class="panel">
+    <h2>Krark's hand</h2>
+    <div id="hand" class="chips"><span class="muted">–</span></div>
+  </div>
+  <div class="panel">
+    <h2>Goblin chatter</h2>
+    <div id="log"></div>
+  </div>
+</main>
+<div id="action"><div id="prompt" class="muted">Connecting…</div><div id="buttons"></div></div>
+
+<script>
+let since = 0;
+let awaiting = "none";
+const $ = id => document.getElementById(id);
+
+function classify(line){
+  if (line.includes("KRARK")) return "krark";
+  if (line.includes("OPP")) return "opp";
+  if (line.includes("YOU")) return "you";
+  if (line.startsWith("===")) return "win";
+  if (line.startsWith("──") || line.includes("OPENING")) return "hd";
+  return "";
+}
+function appendLog(lines){
+  if (!lines || !lines.length) return;
+  const box = $("log");
+  for (const l of lines){
+    const d = document.createElement("div");
+    d.className = classify(l);
+    d.textContent = l;
+    box.appendChild(d);
+  }
+  box.scrollTop = box.scrollHeight;
+}
+function renderView(v){
+  if (!v) return;
+  $("s-turn").textContent = v.turn;
+  $("s-opp").textContent = v.opp_life;
+  $("s-life").textContent = v.our_life;
+  $("s-lands").textContent = v.lands;
+  $("s-tr").textContent = v.treasures;
+  // hand
+  const h = $("hand"); h.innerHTML = "";
+  if (!v.hand.length) h.innerHTML = '<span class="muted">(empty)</span>';
+  for (const c of v.hand){ const s=document.createElement("span"); s.className="chip"; s.textContent=c; h.appendChild(s); }
+  // board
+  const b = $("board"); b.innerHTML = "";
+  const perms = v.board.filter(p=>!p.is_land);
+  const lands = v.board.filter(p=>p.is_land);
+  if (!perms.length && !lands.length) b.innerHTML = '<span class="muted">(empty)</span>';
+  for (const p of perms) b.appendChild(permRow(p));
+  for (const p of lands) b.appendChild(permRow(p));
+}
+function permRow(p){
+  const row = document.createElement("div");
+  row.className = "perm" + (p.is_land ? " land" : "");
+  const nm = document.createElement("span"); nm.className="nm";
+  nm.textContent = "[" + p.idx + "] " + p.name;
+  row.appendChild(nm);
+  if (p.copy_of){ const c=document.createElement("span"); c.className="cp"; c.textContent="= "+p.copy_of; row.appendChild(c); }
+  if (awaiting === "removal"){
+    for (const [label, kind] of [["Destroy","destroy"],["Exile","exile"],["Bounce","bounce"]]){
+      const btn = document.createElement("button"); btn.className="small warn"; btn.textContent=label;
+      btn.onclick = ()=> send("remove:"+p.idx+":"+kind);
+      row.appendChild(btn);
+    }
+  }
+  return row;
+}
+function renderAction(s){
+  awaiting = s.awaiting;
+  const prompt = $("prompt"), btns = $("buttons");
+  btns.innerHTML = "";
+  if (s.awaiting === "response"){
+    prompt.textContent = (s.fighting_back ? "Krark answers with: " : "Krark casts: ") + s.prompt;
+    addBtn(btns, "Let it resolve", "primary", ()=> send("resolve"));
+    addBtn(btns, "Counter it", "warn", ()=> counterPrompt());
+    addBtn(btns, "Pass turn (no responses)", "", ()=> send("pass"));
+  } else if (s.awaiting === "removal"){
+    prompt.textContent = "Your window — destroy / exile / bounce its permanents (use the buttons above), then:";
+    addBtn(btns, "Done — pass to Krark", "primary", ()=> send("done"));
+  } else if (s.awaiting === "over"){
+    prompt.innerHTML = "<b>"+s.result+"</b>";
+    const inp = document.createElement("input"); inp.type="number"; inp.id="seedin"; inp.placeholder="seed"; inp.style.width="90px";
+    btns.appendChild(inp);
+    addBtn(btns, "New game", "primary", ()=> send("newgame:" + (($("seedin").value)||Math.floor(Math.random()*100000))));
+  } else {
+    prompt.innerHTML = '<span class="muted">Krark is thinking…</span>';
+  }
+}
+function counterPrompt(){
+  const btns = $("buttons"); btns.innerHTML = "";
+  $("prompt").textContent = "Counter with which card? (optional — leave blank for a generic counter)";
+  const inp = document.createElement("input"); inp.type="text"; inp.id="cardin"; inp.placeholder="e.g. Force of Will"; inp.style.minWidth="180px";
+  btns.appendChild(inp);
+  addBtn(btns, "Counter!", "warn", ()=> send("counter:" + ($("cardin").value||"")));
+  addBtn(btns, "cancel", "small", ()=> { /* next poll restores */ });
+  inp.focus();
+  inp.addEventListener("keydown", e=>{ if(e.key==="Enter") send("counter:"+($("cardin").value||"")); });
+}
+function addBtn(parent, label, cls, fn){
+  const b = document.createElement("button"); b.textContent=label; if(cls) b.className=cls; b.onclick=fn; parent.appendChild(b);
+}
+async function send(cmd){
+  awaiting = "none";
+  $("prompt").innerHTML = '<span class="muted">…</span>'; $("buttons").innerHTML = "";
+  await fetch("/api/input", {method:"POST", body:cmd});
+  setTimeout(poll, 120);
+}
+async function poll(){
+  try {
+    const r = await fetch("/api/state?since=" + since);
+    const s = await r.json();
+    since = s.log_len;
+    appendLog(s.log);
+    renderView(s.view);
+    renderAction(s);
+  } catch(e){ /* server starting / between requests */ }
+}
+poll();
+setInterval(poll, 700);
+</script>
+</body>
+</html>
