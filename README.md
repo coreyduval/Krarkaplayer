@@ -19,10 +19,10 @@ deck wins by then. Latest converged baseline, 1200 seeds × 8 flips:
 
 | Metric | Value |
 |---|---|
-| **Win by turn 12** | **~96%** (T6 53% · T8 83% · T10 93%) |
-| Win-turn | mean ~6.6, median **6**, fastest 2 |
-| **Early-win score** (geo, T2–8, earlier = better) | **~1.31** |
-| TTK (non-wins penalized at turn 15) | ~6.9 |
+| **Win by turn 12** | **~96%** (T6 54% · T8 83% · T10 93%) |
+| Win-turn | mean ~6.5, median **6**, fastest 2 |
+| **Early-win score** (geo, T2–8, earlier = better) | **~1.33** |
+| TTK (non-wins penalized at turn 15) | ~6.8 |
 | Win conditions | Dualcaster combat ~46% · Urabrask/Vivi burn ~25% · Brain Freeze mill ~17% · Grapeshot storm-burn ~11% |
 | Engines | Storm-Kiln Artist ~37% · ritual/Jeska burst ~21% · Vivi/Urabrask ~12% · Archmage ~10% · Tavern Scoundrel ~10% · Birgi ~10% |
 
@@ -48,7 +48,7 @@ $EXE                                          # dump the deck + card registry
 $EXE selftest                                 # engine self-tests (prints "passed")
 $EXE diag --seed 11                           # "run a sim": verbose play-by-play of one game
 python diag_table.py 11                        # same game as a clean per-turn table
-                                              #   (Drew / Land / Plays with xN attempts + x/y flips)
+                                              #   (Hand@start / Drew / Land / Plays xN + x/y flips / Lost)
 $EXE sweep --games 600 --flip-trials 8        # "run a sweep": 600 seeds x 8 flips (the standard batch)
 $EXE sweep --games 1200 --flip-trials 8       # full convergence (~9–18 min)
 $EXE audit --games 300                        # per-source utilization / waste report
@@ -74,9 +74,11 @@ Convention:
 | `--keep-gate fast\|mana\|none` | mulligan first-hand gate | `fast` |
 | `--keep-min-lands N` / `--mull-depth N` | min lands to keep / how deep to mulligan | 2 / 2 |
 | `--no-fast-mull` | disable mulligan-for-speed (also sets gate `none`) | off (fast-mull on) |
+| `--no-dead-hand-mull` | force-keep a mana-less floor hand instead of mulliganing deeper | off (override on) |
 | `--no-smart-land` | disable color-aware land sequencing | off (smart on) |
 | `--no-aggro-cantrips` | stop casting cantrips just for card flow | off (aggro on) |
 | `--no-jeska-boost` | drop Jeska's Will's elevated tutor priority | off (boost on) |
+| `--ritual-prelude` | (experimental) fire a ritual to power out a payoff a turn early | off |
 | `--dev-cap N` · `--rollout-steps N` | develop-loop cap · go-off rollout depth | 12 · 20 |
 
 A land↔spell swap keeps the deck at 98: `--cut "Mountain" --add "Preordain"`.

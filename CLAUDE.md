@@ -40,15 +40,16 @@ Binary: `rust/target/release/krarksim(.exe)`.
 ## Metric framing (speed-first)
 cEDH games are decided early, so the default `--max-turns 12` caps compute at turn 12 and the
 deck is judged on **speed**, not just eventual win%:
-- **EARLY-WIN SCORE** — geometric, weights T2–8, earlier = better (~1.31 baseline). Primary lever.
-- **win-by-T12** (~96%) and **TTK** (non-wins penalized at turn 15, ~6.9). Past T12 is ~worthless.
+- **EARLY-WIN SCORE** — geometric, weights T2–8, earlier = better (~1.33 baseline). Primary lever.
+- **win-by-T12** (~96%) and **TTK** (non-wins penalized at turn 15, ~6.8). Past T12 is ~worthless.
 
 ## Sweep flags (defaults in parens)
 `--games N` (30) · `--flip-trials N` (10) · `--seed N` (0) · `--max-turns N` (12) ·
 `--win-threshold F` (0.95) · `--send-gate F` (0.20, commit gate when a fizzle isn't fatal) ·
 `--cut "Card"` / `--add "Card"` (both repeatable; LOO + bench swaps) ·
 `--keep-gate fast|mana|none` (**fast**) · `--keep-min-lands N` (2) · `--mull-depth N` (2) ·
-`--no-fast-mull` · `--no-smart-land` · `--no-aggro-cantrips` · `--no-jeska-boost` ·
+`--no-fast-mull` · `--no-dead-hand-mull` (dead-hand override is **on**) · `--no-smart-land` ·
+`--no-aggro-cantrips` · `--no-jeska-boost` · `--ritual-prelude` (off; experimental) ·
 `--dev-cap N` (12) · `--rollout-steps N` (20). `audit` shares most flags (games default 300).
 
 ## Sample size & timing
@@ -93,6 +94,9 @@ off / idle; factor that into ETAs and **state an ETA up front for any long run**
 - Seat randomization: 0.75 on the draw (extra T1 draw), seeded per game.
 - **Mulligan default `gate=fast`** (mulligan-for-speed: first keep needs explosive mana / an
   engine / a combo piece; validated −0.09 turns free). `--no-fast-mull` reverts to `none`.
+  **Dead-hand override** (default on; `--no-dead-hand-mull`): at the mulligan floor, don't
+  force-keep a hand with no land AND no land-independent mana (Lotus Petal / Chrome Mox / LED /
+  Simian) — it can't make turn-1 mana — mulligan deeper (up to depth+2) instead.
 - Manabase: fetchland package (Steam Vents + 3 fetches; grab Vents, thin the library, shock in
   untapped), color-aware land sequencing (`SMART_LAND`, default on). Scry/surveil modeled
   (Opt/Consider/Serum/Preordain/Ponder). Cantrips cast aggressively for flow (`AGGRO_CANTRIPS`).
@@ -106,5 +110,5 @@ off / idle; factor that into ETAs and **state an ETA up front for any long run**
 - Verify every change: build + `selftest` + a representative `sweep`; report regressions
   honestly, including the numbers.
 - For risky engine changes, A/B sweep at 1200×8 vs the baseline (~96% win-by-T12 / early-win
-  ~1.31 / TTK ~6.9). Optimize the **early-win score**; guard win-by-T12 ≥ ~95%.
+  ~1.33 / TTK ~6.8). Optimize the **early-win score**; guard win-by-T12 ≥ ~95%.
 - Keep changes surgical; match surrounding Rust style.
