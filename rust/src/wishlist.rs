@@ -26,7 +26,10 @@ const BODIES: &[&str] = &[
 ];
 const DOUBLERS: &[&str] = &["Veyran, Voice of Duality", "Harmonic Prodigy", "Roaming Throne"];
 const DRAW_ENGINES: &[&str] = &["Archmage Emeritus"];
-const MANA_ENGINES: &[&str] = &["Storm-Kiln Artist", "Birgi, God of Storytelling"];
+// Tavern Scoundrel makes 2 Treasures per flip-WIN — with Krark bodies + Thumb (~3 wins/cast) it's
+// the deck's highest-output mana engine (>> Birgi's 1 R/cast), so it belongs here, not in the misc
+// in_engine tier. (Cheapest mv among these, so the tiebreaker ranks it the preferred mana engine.)
+const MANA_ENGINES: &[&str] = &["Storm-Kiln Artist", "Birgi, God of Storytelling", "Tavern Scoundrel"];
 const FAST_MANA: &[&str] = &[
     "Sol Ring", "Mox Diamond", "Chrome Mox", "Lotus Petal", "Arcane Signet", "Springleaf Drum",
     "Lion's Eye Diamond", "Mana Vault", "Mox Amber", "Relic of Legends",

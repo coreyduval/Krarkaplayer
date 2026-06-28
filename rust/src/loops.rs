@@ -766,7 +766,16 @@ pub fn develop_score(s: &GameState, reg: &Registry, card: &str) -> f64 {
     if pure_mana && !has_mana_sink(s) {
         return if treasures_made > 0.0 { treasures_made * TREASURE_BANK_WEIGHT } else { -1.0 };
     }
-    (mana - cost as f64) + a.e_draws + finish
+    // Among equal-dig cantrips (cost waived above), prefer the CHEAPER one: casting {0} before
+    // {1}{U} keeps the loop mana-positive (a treasure engine refunds the cheaper cast in full),
+    // and saves the surplus for the next play. Small coefficient — a tiebreak that never reorders
+    // the coarse dig-value tiers (e_draws ~1 each).
+    let cheap_tiebreak = if aggro_cantrips() && CANTRIP_LOOP.contains(&card) {
+        reg.get(card).mana_value as f64 * 0.15
+    } else {
+        0.0
+    };
+    (mana - cost as f64) + a.e_draws + finish - cheap_tiebreak
 }
 
 pub fn max_draws(s: &GameState, reg: &Registry, card: &str) -> f64 {
