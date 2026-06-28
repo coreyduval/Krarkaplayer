@@ -344,18 +344,19 @@ pub fn winning_payoff(s: &GameState, reg: &Registry, payoffs: &[&str], need_life
     None
 }
 
-/// True if Krark + Flare of Duplication makes INFINITE magecraft now. A Krark win copies the Flare
-/// spell; aim the copy at the original Flare still on the stack — copying a spell doesn't consume it,
-/// so each resolution spawns another Flare copy, unbounded. Only the SEED flip is random, so gate
-/// reliability like the krark-shimmer line (Krark's Thumb, or >=2 flips). Two payoff routes convert
-/// the unbounded triggers into a kill:
-///  - Storm-Kiln Artist: Treasure + storm per magecraft = infinite mana & storm. No draw, so the
-///    finisher must already be castable this turn (hand / Jeska exile / escapable).
+/// True if Krark + Flare of Duplication can fire a reliable kill now. A Krark win copies the Flare
+/// spell; aim the copy at the original Flare still on the stack (copying doesn't consume it), so each
+/// resolution spawns another Flare copy = infinite MAGECRAFT. Note: copies are NOT cast, so the loop
+/// raises magecraft, NOT storm. Seeding it just needs to WIN ONE flip (P(win >=1) = 1 - 1/2^n over n
+/// Krark triggers) — reliable with Krark's Thumb OR enough triggers (>=3 flips ~= 87.5%), the same
+/// bar the krark-shimmer line uses; no Thumb required. Two payoff routes turn the unbounded magecraft
+/// into a kill:
+///  - Storm-Kiln Artist: Treasure per magecraft = infinite MANA, which fuels Krark recasts (each
+///    recast a real cast -> +1 storm) to pump a castable Grapeshot / Brain Freeze to lethal.
 ///  - Archmage Emeritus: a card per magecraft = draw the whole library, so the finisher only needs
-///    to EXIST (incl. still in library) — the loop draws it plus the fast mana to cast it.
-/// (Veyran-only / pure-mill routes still aren't claimed.)
+///    to EXIST (incl. still in library) — the loop draws it plus the mana to cast it.
 fn flare_magecraft_lethal(s: &GameState, reg: &Registry) -> bool {
-    if !(s.has_krarks_thumb() || s.flips_per_cast(reg) >= 2) {
+    if !(s.has_krarks_thumb() || s.flips_per_cast(reg) >= 3) {
         return false;
     }
     // Castable this turn: hand, Jeska's-Will exile, or a graveyard escape.
