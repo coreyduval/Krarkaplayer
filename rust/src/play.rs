@@ -196,7 +196,7 @@ const WORTH_COUNTERING: &[&str] = &[
     // payoffs
     "Grapeshot", "Brain Freeze", "Thassa's Oracle",
     // combo enablers
-    "Dualcaster Mage", "Twinflame", "Heat Shimmer", "Underworld Breach",
+    "Dualcaster Mage", "Twinflame", "Molten Duplication", "Underworld Breach",
     // value engines
     "Storm-Kiln Artist", "Birgi, God of Storytelling", "Veyran, Voice of Duality",
     "Vivi Ornitier", "Urabrask", "Archmage Emeritus", "Harmonic Prodigy", "Tavern Scoundrel",

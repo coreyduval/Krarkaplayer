@@ -263,6 +263,12 @@ fn convert_available(s: &GameState, reg: &Registry, color: &str, need: i64) -> b
         if let Some((mode, produced)) = mana_source(p.effective_name()) {
             if matches!(mode, SrcMode::Tap | SrcMode::Sac) {
                 have += produced.get("*").copied().unwrap_or(0) + produced.get(color).copied().unwrap_or(0);
+            } else if mode == SrcMode::LifeRepeat {
+                // Treasonous Ogre: life→mana battery (bounded by the life floor) is real convertible mana.
+                let n = ((s.our_life - crate::game_state::LIFE_FLOOR)
+                    / crate::tables::LIFE_REPEAT_COST)
+                    .max(0);
+                have += produced.get(color).copied().unwrap_or(0) * n;
             }
         }
     }
@@ -323,7 +329,7 @@ pub fn winning_payoff(s: &GameState, reg: &Registry, payoffs: &[&str], need_life
             return Some("Brain Freeze".to_string());
         }
     }
-    // Dualcaster Mage + Twinflame/Heat Shimmer = infinite hasty attackers (Dualcaster has flash:
+    // Dualcaster Mage + Twinflame/Molten Duplication = infinite hasty attackers (Dualcaster has flash:
     // cast a shimmer, flash Dualcaster in response copying it, the token Dualcaster re-copies the
     // shimmer, ad infinitum). The deterministic kill search catches this via detect_loops, but the
     // ROLLOUT only consults winning_payoff — so without this it keeps digging (and self-mills the
@@ -331,10 +337,47 @@ pub fn winning_payoff(s: &GameState, reg: &Registry, payoffs: &[&str], need_life
     if dualcaster_shimmer_lethal(s, reg) || krark_shimmer_lethal(s, reg) {
         return Some("combat".to_string());
     }
+    // Krark + Flare of Duplication = infinite magecraft -> infinite mana/storm (Storm-Kiln) -> burn.
+    if flare_magecraft_lethal(s, reg) {
+        return Some("Grapeshot".to_string());
+    }
     None
 }
 
-/// True if the Krark + Sakashima + Twinflame/Heat Shimmer engine makes INFINITE hasty Krarks now:
+/// True if Krark + Flare of Duplication makes INFINITE magecraft now. A Krark win copies the Flare
+/// spell; aim the copy at the original Flare still on the stack — copying a spell doesn't consume it,
+/// so each resolution spawns another Flare copy, unbounded. Only the SEED flip is random, so gate
+/// reliability like the krark-shimmer line (Krark's Thumb, or >=2 flips). Two payoff routes convert
+/// the unbounded triggers into a kill:
+///  - Storm-Kiln Artist: Treasure + storm per magecraft = infinite mana & storm. No draw, so the
+///    finisher must already be castable this turn (hand / Jeska exile / escapable).
+///  - Archmage Emeritus: a card per magecraft = draw the whole library, so the finisher only needs
+///    to EXIST (incl. still in library) — the loop draws it plus the fast mana to cast it.
+/// (Veyran-only / pure-mill routes still aren't claimed.)
+fn flare_magecraft_lethal(s: &GameState, reg: &Registry) -> bool {
+    if !(s.has_krarks_thumb() || s.flips_per_cast(reg) >= 2) {
+        return false;
+    }
+    // Castable this turn: hand, Jeska's-Will exile, or a graveyard escape.
+    let castable = |name: &str| {
+        s.hand.iter().any(|c| c == name)
+            || s.exiled_play.iter().any(|c| c == name)
+            || (s.graveyard.iter().any(|c| c == name) && can_escape(s, reg, name))
+    };
+    if !castable("Flare of Duplication")
+        || !s.mana.can_pay(&s.cast_cost(reg, "Flare of Duplication"))
+    {
+        return false;
+    }
+    let finisher_castable = castable("Grapeshot") || castable("Brain Freeze");
+    // Archmage draws the whole library, so a finisher anywhere reachable (incl. library) is enough.
+    let finisher_reachable = finisher_castable
+        || ["Grapeshot", "Brain Freeze"].iter().any(|f| s.library.iter().any(|c| c == f));
+    (s.has_permanent("Storm-Kiln Artist") && finisher_castable)
+        || (s.has_permanent("Archmage Emeritus") && finisher_reachable)
+}
+
+/// True if the Krark + Sakashima + Twinflame/Molten Duplication engine makes INFINITE hasty Krarks now:
 /// cast a shimmer at Krark and flip for one LOSS (Krark returns the shimmer to hand) + wins (each
 /// copy a token Krark). Sakashima's legend-rule break lets the tokens stick; a renewable mana source
 /// — a per-cast engine, or a loopable ritual in hand (the Krark return-trick loops it for net mana) —
@@ -360,12 +403,12 @@ fn krark_shimmer_lethal(s: &GameState, reg: &Registry) -> bool {
     let access = |name: &str| {
         s.hand.iter().any(|c| c == name) || s.exiled_play.iter().any(|c| c == name)
     };
-    ["Twinflame", "Heat Shimmer"]
+    ["Twinflame", "Molten Duplication"]
         .iter()
         .any(|sh| access(sh) && s.mana.can_pay(&s.cast_cost(reg, sh)))
 }
 
-/// True if Dualcaster Mage + a Twinflame/Heat Shimmer can fire the infinite-hasty-attackers combo
+/// True if Dualcaster Mage + a Twinflame/Molten Duplication can fire the infinite-hasty-attackers combo
 /// right now: two Dualcaster bodies already (loop established), or Dualcaster in hand with a shimmer
 /// in hand (or escapable) and mana for both. Lean inline mirror of detect_loops's confirmed branch
 /// for the rollout's hot path (full Gale/Breach routes are re-verified by the commit-time solve).
@@ -385,7 +428,7 @@ fn dualcaster_shimmer_lethal(s: &GameState, reg: &Registry) -> bool {
         return false;
     }
     let dc_cost = s.cast_cost(reg, "Dualcaster Mage");
-    ["Twinflame", "Heat Shimmer"].iter().any(|sh| {
+    ["Twinflame", "Molten Duplication"].iter().any(|sh| {
         access(sh) && {
             let sh_cost = s.cast_cost(reg, sh);
             s.mana.can_pay(&add_costs(&[sh_cost.as_ref(), dc_cost.as_ref()]))
@@ -774,7 +817,7 @@ pub fn develop_score(s: &GameState, reg: &Registry, card: &str) -> f64 {
     if card == "Quasiduplicate" {
         return crate::resolver::quasi_value(s, reg, a.e_effect_resolutions);
     }
-    if card == "Twinflame" || card == "Heat Shimmer" {
+    if card == "Twinflame" || card == "Molten Duplication" {
         return crate::resolver::shimmer_value(s, reg, a.e_effect_resolutions);
     }
     if card == "Gamble" {
@@ -1347,7 +1390,7 @@ fn shimmer_start(state: &GameState, reg: &Registry) -> (Option<String>, crate::c
         }
     };
 
-    for sh in ["Twinflame", "Heat Shimmer"] {
+    for sh in ["Twinflame", "Molten Duplication"] {
         if state.hand.iter().any(|c| c == sh) {
             consider(sh, state.cast_cost(reg, sh).into_owned(), "in hand");
             continue;
@@ -1418,7 +1461,7 @@ pub fn detect_loops(state: &GameState, reg: &Registry) -> LoopReport {
         || ["Brightstone Ritual", "Pyretic Ritual", "Desperate Ritual", "Rite of Flame"]
             .iter()
             .any(|r| state.hand.iter().any(|c| c == r));
-    let kss_shimmer = ["Twinflame", "Heat Shimmer"].iter().find(|sh| {
+    let kss_shimmer = ["Twinflame", "Molten Duplication"].iter().find(|sh| {
         (state.hand.iter().any(|c| &c.as_str() == *sh) || state.exiled_play.iter().any(|c| &c.as_str() == *sh))
             && state.mana.can_pay(&state.cast_cost(reg, sh))
     });

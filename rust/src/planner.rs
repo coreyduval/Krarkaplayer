@@ -87,6 +87,16 @@ pub fn tap_out(state: &GameState) -> GameState {
                 s.battlefield[i].tapped = true;
                 s.mana.add_cost(&produced);
                 s.our_life -= life;
+            } else if mode == SrcMode::LifeRepeat {
+                // Treasonous Ogre: drain the full life→mana battery (down to the floor) — the go-off
+                // wants max mana. Repeatable, so never marked tapped.
+                let n = ((s.our_life - crate::game_state::LIFE_FLOOR)
+                    / crate::tables::LIFE_REPEAT_COST)
+                    .max(0);
+                for (k, v) in &produced {
+                    s.mana.add(k, v * n);
+                }
+                s.our_life -= crate::tables::LIFE_REPEAT_COST * n;
             }
         }
     }
@@ -104,6 +114,15 @@ pub fn tap_out(state: &GameState) -> GameState {
 pub fn apply_mana_ability_reg(s: &mut GameState, reg: &Registry, idx: usize) {
     let name = s.battlefield[idx].effective_name().to_string();
     let (mode, produced) = s.battlefield[idx].mana_produced().unwrap();
+    if mode == SrcMode::LifeRepeat {
+        // Treasonous Ogre: drain the full battery, charge life, never tap (repeatable).
+        let n = ((s.our_life - crate::game_state::LIFE_FLOOR) / crate::tables::LIFE_REPEAT_COST).max(0);
+        for (k, v) in &produced {
+            s.mana.add(k, v * n);
+        }
+        s.our_life -= crate::tables::LIFE_REPEAT_COST * n;
+        return;
+    }
     match mode {
         SrcMode::Tap => s.battlefield[idx].tapped = true,
         SrcMode::TapCreature => {
@@ -128,6 +147,7 @@ pub fn apply_mana_ability_reg(s: &mut GameState, reg: &Registry, idx: usize) {
             let hand: Vec<String> = std::mem::take(&mut s.hand);
             s.graveyard.extend(hand);
         }
+        SrcMode::LifeRepeat => unreachable!("LifeRepeat handled by early return above"),
     }
     s.mana.add_cost(&produced);
     s.our_life -= life_per_tap(&name);

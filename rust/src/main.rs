@@ -47,10 +47,13 @@ fn build_deck(reg: &Registry, islands: u32, mountains: u32) -> Vec<String> {
     // default list.
     // Extra fetches (Misty Rainforest..Flooded Strand) kept in the registry for --add A/B testing of
     // higher fetch counts; not in the default 3-fetch deck.
-    const DECK_EXCLUDE: [&str; 11] = [
+    const DECK_EXCLUDE: [&str; 14] = [
         "Thassa's Oracle", "Crimson Wisps", "Renegade Tactics", "Accelerate",
         "Misty Rainforest", "Arid Mesa", "Wooded Foothills", "Flooded Strand",
         "The One Ring", "Electro, Assaulting Battery", "Grim Monolith",
+        // Cut for Molten Duplication / Flare of Duplication (maindeck). Treasonous Ogre stays modeled
+        // but benched — Gut Shot kept instead (faster early-win in the A/B, 1.748 vs 1.718).
+        "Peek", "Snap", "Treasonous Ogre",
     ];
     let mut deck: Vec<String> = reg
         .ordered_names()
@@ -451,7 +454,7 @@ fn main() {
             use rand::SeedableRng;
             // --no-combo: forbid the Dualcaster/Twinflame infinite, forcing a STORM win.
             let no_combo = args.iter().any(|a| a == "--no-combo");
-            let combo_pieces = ["Dualcaster Mage", "Twinflame", "Heat Shimmer"];
+            let combo_pieces = ["Dualcaster Mage", "Twinflame", "Molten Duplication"];
             let deck: Vec<String> = build_deck(&reg, 6, 8)
                 .into_iter()
                 .filter(|c| !no_combo || !combo_pieces.contains(&c.as_str()))

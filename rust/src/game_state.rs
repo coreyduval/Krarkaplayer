@@ -268,7 +268,7 @@ pub struct Permanent {
     pub tapped: bool,
     pub summoning_sick: bool,
     pub is_token: bool,
-    /// Twinflame / Heat Shimmer token copies are sacrificed at end of turn — they only ever help the
+    /// Twinflame / Molten Duplication token copies are sacrificed at end of turn — they only ever help the
     /// go-off turn they're made. Filtered at the develop copy-back so they never persist to the real
     /// board; permanent tokens (Quasiduplicate) leave this false.
     pub temporary: bool,

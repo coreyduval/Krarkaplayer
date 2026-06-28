@@ -11,7 +11,7 @@ pub const MAX_FLIPS: i64 = 40;
 const QUASI_BODY_CAP: i64 = 4;
 const QUASI_TOKEN_CAP: i64 = 5;
 
-/// A/B toggle (default ON): model Twinflame / Heat Shimmer making temporary token copies to bolster a
+/// A/B toggle (default ON): model Twinflame / Molten Duplication making temporary token copies to bolster a
 /// go-off (more Krark flips / a deepened engine for the turn). `--no-shimmer-tokens` recovers the old
 /// "shimmers are the Dualcaster combo only" behavior.
 pub static SHIMMER_TOKENS: std::sync::OnceLock<bool> = std::sync::OnceLock::new();
@@ -238,7 +238,7 @@ pub fn discard_rank(state: &GameState, reg: &Registry, card: &str) -> f64 {
         "Thassa's Oracle" => 1e9,
         "Grapeshot" | "Brain Freeze" => 1e8,
         "Underworld Breach" => 5e7,
-        "Dualcaster Mage" | "Twinflame" | "Heat Shimmer" | "Gale, Waterdeep Prodigy" => 1e7,
+        "Dualcaster Mage" | "Twinflame" | "Molten Duplication" | "Gale, Waterdeep Prodigy" => 1e7,
         _ => 0.0,
     };
     if protect > 0.0 {
@@ -367,7 +367,7 @@ pub fn quasi_target(state: &GameState, reg: &Registry) -> Option<String> {
     None
 }
 
-/// Twinflame / Heat Shimmer target: copy the creature that best shores up the go-off's WEAKEST link.
+/// Twinflame / Molten Duplication target: copy the creature that best shores up the go-off's WEAKEST link.
 /// Priority of weaknesses: (1) no payoff in reach -> copy a tutor body to dig one up; (2) flips ->
 /// copy Krark (more bodies multiply every copy/storm — the dominant lever) up to the body cap; (3)
 /// flips saturated -> deepen the strongest per-cast value engine (treasure/draw/mana). Tokens are
@@ -416,7 +416,7 @@ pub fn shimmer_target(state: &GameState, reg: &Registry) -> Option<String> {
     None
 }
 
-/// develop_score value of a Twinflame / Heat Shimmer cast — mirrors `quasi_value` on the chosen
+/// develop_score value of a Twinflame / Molten Duplication cast — mirrors `quasi_value` on the chosen
 /// bolster target (a Krark body is worth more than a copied engine). The mana cost is handled by the
 /// rollout's mana accounting, like every other develop_score special-case.
 pub fn shimmer_value(state: &GameState, reg: &Registry, resolutions: f64) -> f64 {
@@ -805,7 +805,7 @@ fn run_effect<R: Rng + ?Sized>(
             }
             true
         }
-        "Twinflame" | "Heat Shimmer" if shimmer_tokens_on() => {
+        "Twinflame" | "Molten Duplication" if shimmer_tokens_on() => {
             // Hasty token copies (sac'd at end of turn) of the creature that best shores up the
             // go-off — see `shimmer_target`. `n` = original + Krark copies of this spell; each makes
             // one token, bounded by the body/token caps so the count can't run away. Marked

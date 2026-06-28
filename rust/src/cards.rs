@@ -201,11 +201,11 @@ const CREATURES: &[&str] = &[
     "Veyran, Voice of Duality", "Vivi Ornitier", "Zndrsplt, Eye of Wisdom",
     "Glasspool Mimic", "Phantasmal Image", "Subtlety", "Thassa's Oracle",
     "Valley Floodcaller", "Phyrexian Metamorph", "Mockingbird", "Roaming Throne",
-    "Electro, Assaulting Battery",
+    "Electro, Assaulting Battery", "Treasonous Ogre",
 ];
 const SORCERIES: &[&str] = &[
     "Quasiduplicate", "Gamble", "Jeska's Will", "Ponder", "Grapeshot",
-    "Twinflame", "Strike It Rich", "Gitaxian Probe", "Rite of Flame", "Heat Shimmer",
+    "Twinflame", "Strike It Rich", "Gitaxian Probe", "Rite of Flame", "Molten Duplication",
     "Serum Visions", "Preordain", "Overmaster", "Heroes' Hangout", "Step Through",
     "Renegade Tactics",
 ];
@@ -216,7 +216,7 @@ const INSTANTS: &[&str] = &[
     "An Offer You Can't Refuse", "Borne Upon a Wind", "Mogg Salvage", "Peek",
     "Opt", "Consider", "Expedite", "Might of the Meek", "Brightstone Ritual",
     "Crimson Wisps", "Accelerate",
-    "Mystical Tutor",
+    "Mystical Tutor", "Flare of Duplication",
 ];
 const ENCHANTMENTS: &[&str] = &["Underworld Breach", "Mystic Remora", "Rhystic Study"];
 const ARTIFACTS: &[&str] = &[
@@ -413,7 +413,7 @@ pub const NO_SOLITAIRE_TARGET: &[&str] = &[
     "Subtlety",
 ];
 pub const FREE_COUNTERS: &[&str] = &["Deflecting Swat"];
-pub const NEEDS_OWN_CREATURE: &[&str] = &["Twinflame", "Heat Shimmer", "Quasiduplicate", "Snap"];
+pub const NEEDS_OWN_CREATURE: &[&str] = &["Twinflame", "Molten Duplication", "Quasiduplicate", "Snap"];
 
 pub fn castable_in_solitaire(name: &str, has_own_creature: bool) -> bool {
     if NO_SOLITAIRE_TARGET.contains(&name) {

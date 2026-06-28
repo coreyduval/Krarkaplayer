@@ -13,6 +13,7 @@ Snapcaster Mage|{1}{U}|2|Flash. When Snapcaster Mage enters the battlefield, tar
 Spellseeker|{2}{U}|3|When Spellseeker enters the battlefield, search your library for an instant or sorcery card with mana value 2 or less, reveal it, put it into your hand, then shuffle.
 Storm-Kiln Artist|{3}{R}|4|Magecraft — Whenever you cast or copy an instant or sorcery spell, create a Treasure token. Storm-Kiln Artist gets +1/+0 for each artifact you control.
 Tavern Scoundrel|{1}{R}|2|Whenever you flip a coin, if you win the flip, create two Treasure tokens. {1}, Sacrifice a permanent: Flip a coin.
+Treasonous Ogre|{3}{R}|4|Dethrone. Pay 3 life: Add {R}.
 Urabrask|{2}{R}{R}|4|Legendary Creature — Praetor. Whenever you cast an instant or sorcery spell, Urabrask deals 1 damage to target opponent and you add {R}. {R}: Exile Urabrask, then return it transformed under its owner's control. Activate only as a sorcery and only if you've cast three or more instant and/or sorcery spells this turn.
 Veyran, Voice of Duality|{1}{U}{R}|3|Magecraft — Whenever you cast or copy an instant or sorcery spell, Veyran gets +1/+1 until end of turn. If casting or copying an instant or sorcery spell causes a triggered ability of a permanent you control to trigger, that ability triggers an additional time.
 Vivi Ornitier|{1}{U}{R}|3|Legendary Creature — Wizard. {0}: Add X mana in any combination of {U} and/or {R}, where X is Vivi Ornitier's power. Activate only during your turn and only once each turn. Whenever you cast a noncreature spell, put a +1/+1 counter on Vivi Ornitier and it deals 1 damage to each opponent.
@@ -25,6 +26,8 @@ Ponder|{U}|1|Look at the top three cards of your library, then put them back in 
 Cyclonic Rift|{1}{U}|2|Return target nonland permanent you don't control to its owner's hand. Overload {6}{U} (You may cast this spell for its overload cost. If you do, replace each instance of "target" with "each".)
 Grapeshot|{1}{R}|2|Grapeshot deals 1 damage to any target. Storm.
 Twinflame|{1}{R}|2|Choose any number of target creatures you control. For each of them, create a token that's a copy of that creature, except it has haste. Sacrifice those tokens at the beginning of the next end step. Strive {1}{R}.
+Molten Duplication|{1}{R}|2|Create a token that's a copy of target artifact or creature you control, except it's an artifact in addition to its other types. It gains haste until end of turn. Sacrifice it at the beginning of the next end step.
+Flare of Duplication|{1}{R}{R}|3|You may sacrifice a nontoken red creature rather than pay this spell's mana cost. Copy target instant or sorcery spell. You may choose new targets for the copy.
 Brain Freeze|{1}{U}|2|Target player mills three cards. Storm.
 Frantic Search|{2}{U}|3|Draw two cards, then discard two cards. Untap up to three lands.
 Snap|{1}{U}|2|Return target creature to its owner's hand. Untap up to two lands.

@@ -115,7 +115,7 @@ const FAST_KEEP: &[&str] = &[
     "Storm-Kiln Artist", "Archmage Emeritus", "Birgi, God of Storytelling", "Electro, Assaulting Battery", "Tavern Scoundrel",
     "Veyran, Voice of Duality", "Harmonic Prodigy", "Vivi Ornitier", "Urabrask",
     // combo pieces + tutors
-    "Twinflame", "Heat Shimmer", "Dualcaster Mage", "Spellseeker", "Imperial Recruiter", "Gamble",
+    "Twinflame", "Molten Duplication", "Dualcaster Mage", "Spellseeker", "Imperial Recruiter", "Gamble",
 ];
 // Explosive-mana subset of FAST_KEEP — fast mana that deploys Krark (a body) by ~turn 2.
 const FAST_MANA_KEEP: &[&str] = &[
@@ -208,16 +208,16 @@ const DISCARD_LAND_ON_PLAY: &[&str] = &["Mox Diamond"];
 // Cards Chrome Mox should not imprint (exile) if anything else is available — payoffs/combo pieces.
 const NEVER_IMPRINT: &[&str] = &[
     "Thassa's Oracle", "Grapeshot", "Brain Freeze", "Underworld Breach",
-    "Gale, Waterdeep Prodigy", "Twinflame", "Heat Shimmer", "Dualcaster Mage",
+    "Gale, Waterdeep Prodigy", "Twinflame", "Molten Duplication", "Dualcaster Mage",
 ];
 const RAMP_SPELLS: &[&str] = &["Jeska's Will"];
 
 const CLONES: &[&str] = &["Sakashima of a Thousand Faces", "Glasspool Mimic", "Phantasmal Image", "Phyrexian Metamorph", "Mockingbird"];
 
-// _ACTION = wishlist._ENGINE | {Twinflame, Dualcaster Mage, Heat Shimmer}
+// _ACTION = wishlist._ENGINE | {Twinflame, Dualcaster Mage, Molten Duplication}
 fn is_action(name: &str) -> bool {
     wishlist::in_engine_pub(name)
-        || matches!(name, "Twinflame" | "Dualcaster Mage" | "Heat Shimmer")
+        || matches!(name, "Twinflame" | "Dualcaster Mage" | "Molten Duplication")
 }
 
 fn play_priority(name: &str) -> Option<i64> {
@@ -708,7 +708,8 @@ impl<'a> SimGame<'a> {
     }
 
     fn untapped_sources(&self) -> Vec<(usize, String)> {
-        self.board
+        let mut srcs = self
+            .board
             .iter()
             .enumerate()
             .filter(|(i, (n, _))| {
@@ -735,8 +736,21 @@ impl<'a> SimGame<'a> {
                     true
                 }
             })
+            .filter(|(_, (n, _))| {
+                // Treasonous Ogre (LifeRepeat) only counts while it can still pay one more
+                // activation without dropping below the life floor.
+                if let Some((SrcMode::LifeRepeat, _)) = mana_source(n) {
+                    self.our_life - crate::tables::LIFE_REPEAT_COST >= crate::game_state::LIFE_FLOOR
+                } else {
+                    true
+                }
+            })
             .map(|(i, (n, _))| (i, n.clone()))
-            .collect()
+            .collect::<Vec<_>>();
+        // Tap life→mana sources LAST, after every real source, so we only burn life when nothing
+        // else can pay (stable sort keeps board order within each group).
+        srcs.sort_by_key(|(_, n)| matches!(mana_source(n), Some((SrcMode::LifeRepeat, _))));
+        srcs
     }
 
     fn tap_source(&mut self, idx: usize, pool: &mut ManaPool) {
@@ -747,6 +761,19 @@ impl<'a> SimGame<'a> {
         if let Some((mode, mut produced)) = mana_source(&name) {
             if let Some(tag) = self.chrome_imprint.get(&idx) {
                 produced = crate::tables::chrome_produced(tag);
+            }
+            if mode == SrcMode::LifeRepeat {
+                // Treasonous Ogre: one activation = produce its mana and pay the life cost. NOT marked
+                // tapped — it's repeatable, so the pay-loop re-taps it until untapped_sources life-gates
+                // it out. Gated upstream so this activation is always affordable.
+                pool.add_cost(&produced);
+                self.our_life -= crate::tables::LIFE_REPEAT_COST;
+                if self.audit_on {
+                    let units: i64 = produced.values().sum();
+                    self.audit_turn.push((name.clone(), units, false));
+                    self.audit_turn_produced += units;
+                }
+                return;
             }
             if mode == SrcMode::TapCreature {
                 // Tapping an untapped creature is part of the cost. Gated by
@@ -784,11 +811,21 @@ impl<'a> SimGame<'a> {
             return true;
         }
         for (idx, _) in self.untapped_sources() {
-            if let Some((_, mut produced)) = mana_source(&self.board[idx].0) {
+            if let Some((mode, mut produced)) = mana_source(&self.board[idx].0) {
                 if let Some(tag) = self.chrome_imprint.get(&idx) {
                     produced = crate::tables::chrome_produced(tag);
                 }
-                temp.add_cost(&produced);
+                if mode == SrcMode::LifeRepeat {
+                    // Full battery: as many activations as life allows down to the floor.
+                    let n = ((self.our_life - crate::game_state::LIFE_FLOOR)
+                        / crate::tables::LIFE_REPEAT_COST)
+                        .max(0);
+                    for (k, v) in produced.iter() {
+                        temp.add(k, v * n);
+                    }
+                } else {
+                    temp.add_cost(&produced);
+                }
             }
             if temp.can_pay(cost) {
                 return true;
@@ -1005,8 +1042,12 @@ impl<'a> SimGame<'a> {
             // Auto-tap a freshly deployed mana source so its mana is available this turn — EXCEPT
             // dormant rocks (Mana Vault / Grim Monolith): they don't untap, so cracking on deploy
             // wastes their {C}{C}{C} on an empty turn. Tapped deliberately by the eager tap in
-            // try_cast when a cast actually needs >=3 generic (e.g. Sakashima).
-            if is_mana_source(card) && !is_dormant_rock(card) {
+            // try_cast when a cast actually needs >=3 generic (e.g. Sakashima). Also EXCEPT
+            // life→mana sources (Treasonous Ogre): never burn life eagerly on ETB for unneeded mana.
+            if is_mana_source(card)
+                && !is_dormant_rock(card)
+                && !matches!(mana_source(card), Some((SrcMode::LifeRepeat, _)))
+            {
                 self.tap_source(new_idx, pool);
             }
             if cp.is_none() && is_etb_tutor(card) {
@@ -1658,11 +1699,11 @@ impl<'a> SimGame<'a> {
                 set.insert(c.clone());
             }
             for c in set {
-                // Twinflame/Heat Shimmer make temporary tokens that only help the go-off turn, so
+                // Twinflame/Molten Duplication make temporary tokens that only help the go-off turn, so
                 // they're finishers for the planner rollout, not greedy-ramp casts — exclude them
                 // here so develop never wastes them a turn early.
                 if reg.get(&c).is_instant_or_sorcery()
-                    && !["Grapeshot", "Thassa's Oracle", "Twinflame", "Heat Shimmer"].contains(&c.as_str()) {
+                    && !["Grapeshot", "Thassa's Oracle", "Twinflame", "Molten Duplication"].contains(&c.as_str()) {
                     let sc = loops::develop_score(state, reg, &c);
                     scores.insert(c, sc);
                 }
@@ -1798,7 +1839,7 @@ impl<'a> SimGame<'a> {
                     .any(|c| matches!(c.as_str(), "Grapeshot" | "Brain Freeze" | "Thassa's Oracle"));
                 let dc = state.hand.iter().any(|c| c == "Dualcaster Mage")
                     || state.has_permanent("Dualcaster Mage");
-                let shim = state.hand.iter().any(|c| matches!(c.as_str(), "Twinflame" | "Heat Shimmer"));
+                let shim = state.hand.iter().any(|c| matches!(c.as_str(), "Twinflame" | "Molten Duplication"));
                 let win_path = closing || payoff_in_hand || (dc && shim);
                 // Only crack when genuinely FLOODED — a land surplus, not mana-screw. `cands.is_empty()`
                 // also fires when the hand is full of spells you simply can't afford yet (early/screwed);
@@ -1935,7 +1976,7 @@ impl<'a> SimGame<'a> {
             }
         }
         for p in &state.battlefield[orig_bf..] {
-            // Twinflame/Heat Shimmer tokens are sacrificed at end of turn — never persist them to the
+            // Twinflame/Molten Duplication tokens are sacrificed at end of turn — never persist them to the
             // real board. (develop doesn't cast the shimmers anyway; this is the safety chokepoint.)
             if p.temporary {
                 continue;
@@ -2259,7 +2300,7 @@ impl<'a> SimGame<'a> {
         let lib: HashSet<&str> = self.library.iter().map(|s| s.as_str()).collect();
         let cats: [(&str, &[&str]); 4] = [
             ("PAYOFFS", &["Thassa's Oracle", "Grapeshot", "Brain Freeze"]),
-            ("COMBO", &["Twinflame", "Heat Shimmer", "Dualcaster Mage"]),
+            ("COMBO", &["Twinflame", "Molten Duplication", "Dualcaster Mage"]),
             ("MANA-ENG", &[
                 "Storm-Kiln Artist", "Archmage Emeritus", "Birgi, God of Storytelling",
                 "Electro, Assaulting Battery",
@@ -2367,7 +2408,7 @@ pub fn classify_wincon(detail: &str) -> &'static str {
         || d.contains("hasty attacker")
         || d.contains("Dualcaster")
         || d.contains("Twinflame")
-        || d.contains("Heat Shimmer")
+        || d.contains("Molten Duplication")
         || d.contains("total damage")
         || d.contains("life pool")
     {

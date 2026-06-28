@@ -10,7 +10,14 @@ pub enum SrcMode {
     TapCreature,
     Sac,
     SacHand,
+    /// Repeatable, no-tap, life-for-mana (Treasonous Ogre: "Pay 3 life: Add {R}"). Activated as many
+    /// times as life allows (down to LIFE_FLOOR) rather than once per turn — handled specially in the
+    /// tap/affordability paths, never marked tapped.
+    LifeRepeat,
 }
+
+/// Life paid per single activation of a LifeRepeat source (Treasonous Ogre: 3 life → 1 R).
+pub const LIFE_REPEAT_COST: i64 = 3;
 
 /// (mode, produced-mana). Mirror of planner.MANA_SOURCES.
 pub fn mana_source(name: &str) -> Option<(SrcMode, ManaCost)> {
@@ -46,6 +53,7 @@ pub fn mana_source(name: &str) -> Option<(SrcMode, ManaCost)> {
         "Grim Monolith" => (SrcMode::Tap, mk(&[("C", 3)])),
         "Mox Amber" => (SrcMode::Tap, mk(&[("*", 1)])),
         "Relic of Legends" => (SrcMode::Tap, mk(&[("*", 1)])),
+        "Treasonous Ogre" => (SrcMode::LifeRepeat, mk(&[("R", 1)])),
         _ => return None,
     };
     Some((mode, produced))
