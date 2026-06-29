@@ -392,7 +392,13 @@ fn krark_shimmer_lethal(s: &GameState, reg: &Registry) -> bool {
     if !s.has_sakashima_break() || !(s.has_krarks_thumb() || s.krark_bodies(reg) >= 3) {
         return false;
     }
-    let sustain = ["Storm-Kiln Artist", "Birgi, God of Storytelling", "Tavern Scoundrel"]
+    // Renewable mana to refund the {1}{R} shimmer recast each loop. Storm-Kiln (Treasure per
+    // magecraft — copies count) and Tavern Scoundrel (2 Treasures per flip-win) make the recast free
+    // at one copy. Birgi / Urabrask add only {R} per CAST, so one is net -1 — but the shimmer copies
+    // a CREATURE, so you steer one win to copy Birgi/Urabrask itself → two → +2 red/cast = free, then
+    // pile up token Krarks. So any one engine piece + a few Krarks bootstraps it. A loopable ritual in
+    // hand loops for net mana via the Krark return-trick.
+    let sustain = ["Storm-Kiln Artist", "Tavern Scoundrel", "Birgi, God of Storytelling", "Urabrask"]
         .iter()
         .any(|e| s.has_permanent(e))
         || ["Brightstone Ritual", "Pyretic Ritual", "Desperate Ritual", "Rite of Flame"]
