@@ -140,6 +140,18 @@ pub fn card_value(s: &GameState, reg: &Registry, name: &str, for_tutor: bool) ->
     if COMBO_SHIMMERS.contains(&name) && have_dc && !have_shimmer {
         score += 120.0;
     }
+    // Krark-shimmer namesake combo: a shimmer is the missing piece when a Krark body + a per-cast mana
+    // engine (which the shimmer copies to self-sustain) are already around — Sakashima (a commander)
+    // supplies the legend-break. Value it as gas so tutors grab it over filler like a ritual.
+    if COMBO_SHIMMERS.contains(&name)
+        && !have_shimmer
+        && s.krark_bodies(reg) >= 1
+        && ["Storm-Kiln Artist", "Tavern Scoundrel", "Birgi, God of Storytelling", "Urabrask"]
+            .iter()
+            .any(|e| have(s, e))
+    {
+        score += 100.0;
+    }
 
     let bodies = s.krark_bodies(reg);
     if is_b && (1..2).contains(&bodies) {
