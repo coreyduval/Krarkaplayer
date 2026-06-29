@@ -35,6 +35,7 @@ goff_hdr = ""
 seen_win = False
 win_mode = None
 win_setup, win_kill, win_board = [], [], ""
+brick = ""  # set when the game reached max turns with no win
 
 def fresh(n):
     return dict(n=n, hand="", draws=[], land="", single=[], dev=collections.OrderedDict(),
@@ -51,6 +52,8 @@ for ln in raw:
     elif "=== WIN" in ln:
         win_turn = re.search(r"turn (\d+)", ln).group(1)
         seen_win = True
+    elif "NO WIN" in ln:
+        brick = s.strip("= ").strip()
     elif (s.startswith("[P(win)") or s.startswith("[KILL]")) and not win_detail:
         win_detail = s
     elif seen_win and s.startswith("SETUP"):
@@ -147,3 +150,5 @@ if win_turn:
             ratios = ", ".join(f"{w}/{f}" for _, w, f in goff)
             print(f"Go-off: {goff_hdr}")
             print(f"  {payoff} x{len(goff)} — flips: {ratios}")
+elif brick:
+    print(f"\n{brick}")
