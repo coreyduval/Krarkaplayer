@@ -87,7 +87,13 @@ off / idle; factor that into ETAs and **state an ETA up front for any long run**
 - **Lands gotcha:** `is_land_name` checks a hand-maintained `lands_set()` name list (type-blind),
   so any new land must be added there or it sits dead in hand.
 - Bench cards already wired for `--add` A/B: Crimson Wisps / Renegade Tactics / Accelerate (red
-  cantrips), extra fetches, The One Ring, Electro Assaulting Battery (Birgi-clone), Grim Monolith.
+  cantrips), extra fetches, The One Ring, Electro Assaulting Battery (Birgi-clone), Grim Monolith,
+  **Heat Shimmer / Heat Shimmer II** ({2}{R} shimmers — see the +2-shimmer result below; all shimmer
+  recognition routes through `cards::SHIMMERS`, so adding a shimmer is a registry+cards.rs one-liner).
+- **`--t3-probe`** (sweep): per-opening-card lift for hitting Krark+Sakashima by T3. **`--t3-mull`**
+  (default OFF): a T3-Krarkashima mull seek — A/B-raised the T3-both rate +3.6pts but hurt wins, so it's
+  parked. **Open experiment:** +2 {2}{R} shimmers (−Opt −Might of the Meek) = **+0.099 early-win**
+  (1.82→1.92) at flat win-rate — the session's biggest lever, not yet shipped (needs a real 2nd shimmer).
 
 ## Model assumptions — already implemented, do not regress
 - Goldfish, no interaction. Counters (FoW / Pact / Fierce Guardianship / Flusterstorm /

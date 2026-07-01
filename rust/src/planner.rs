@@ -514,8 +514,9 @@ fn kill_walkthrough(s: &GameState, reg: &Registry) -> Vec<String> {
             || s.exiled_play.iter().any(|c| c == n)
             || s.graveyard.iter().any(|c| c == n)
     };
-    let shimmer = ["Twinflame", "Molten Duplication"]
-        .into_iter()
+    let shimmer = crate::cards::SHIMMERS
+        .iter()
+        .copied()
         .find(|sh| access(sh));
     let bodies = s.krark_bodies(reg);
     let flips = s.flips_per_cast(reg).max(1);

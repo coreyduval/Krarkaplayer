@@ -429,7 +429,7 @@ fn krark_shimmer_lethal(s: &GameState, reg: &Registry) -> bool {
     // A 2-body / no-doubler / single-shimmer / no-Breach line is only ~70% -> not booked as certain.
     if deployable {
         let post_flips = (s.krark_bodies(reg) + 1) * (1 + s.trigger_doublers(reg));
-        let shimmers = ["Molten Duplication", "Twinflame"]
+        let shimmers = crate::cards::SHIMMERS
             .iter()
             .filter(|sh| {
                 s.hand.iter().any(|c| &c.as_str() == *sh)
@@ -465,7 +465,7 @@ fn krark_shimmer_lethal(s: &GameState, reg: &Registry) -> bool {
             || s.exiled_play.iter().any(|c| c == name)
             || (deployable && can_escape(s, reg, name))
     };
-    ["Twinflame", "Molten Duplication"].iter().any(|sh| {
+    crate::cards::SHIMMERS.iter().any(|sh| {
         access(sh) && s.mana.can_pay(&add_costs(&[&sak_cost, s.cast_cost(reg, sh).as_ref()]))
     })
 }
@@ -490,7 +490,7 @@ fn dualcaster_shimmer_lethal(s: &GameState, reg: &Registry) -> bool {
         return false;
     }
     let dc_cost = s.cast_cost(reg, "Dualcaster Mage");
-    ["Twinflame", "Molten Duplication"].iter().any(|sh| {
+    crate::cards::SHIMMERS.iter().any(|sh| {
         access(sh) && {
             let sh_cost = s.cast_cost(reg, sh);
             s.mana.can_pay(&add_costs(&[sh_cost.as_ref(), dc_cost.as_ref()]))
@@ -866,7 +866,7 @@ pub fn develop_score(s: &GameState, reg: &Registry, card: &str) -> f64 {
     if card == "Quasiduplicate" {
         return crate::resolver::quasi_value(s, reg, a.e_effect_resolutions);
     }
-    if card == "Twinflame" || card == "Molten Duplication" {
+    if crate::cards::SHIMMERS.contains(&card) {
         return crate::resolver::shimmer_value(s, reg, a.e_effect_resolutions);
     }
     if card == "Gamble" {
@@ -1439,7 +1439,7 @@ fn shimmer_start(state: &GameState, reg: &Registry) -> (Option<String>, crate::c
         }
     };
 
-    for sh in ["Twinflame", "Molten Duplication"] {
+    for sh in crate::cards::SHIMMERS.iter().copied() {
         if state.hand.iter().any(|c| c == sh) {
             consider(sh, state.cast_cost(reg, sh).into_owned(), "in hand");
             continue;
@@ -1510,7 +1510,7 @@ pub fn detect_loops(state: &GameState, reg: &Registry) -> LoopReport {
         || ["Brightstone Ritual", "Pyretic Ritual", "Desperate Ritual", "Rite of Flame"]
             .iter()
             .any(|r| state.hand.iter().any(|c| c == r));
-    let kss_shimmer = ["Twinflame", "Molten Duplication"].iter().find(|sh| {
+    let kss_shimmer = crate::cards::SHIMMERS.iter().find(|sh| {
         (state.hand.iter().any(|c| &c.as_str() == *sh) || state.exiled_play.iter().any(|c| &c.as_str() == *sh))
             && state.mana.can_pay(&state.cast_cost(reg, sh))
     });

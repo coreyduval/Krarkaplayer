@@ -236,7 +236,7 @@ pub fn discard_rank(state: &GameState, reg: &Registry, card: &str) -> f64 {
     let protect = match card {
         "Grapeshot" | "Brain Freeze" => 1e8,
         "Underworld Breach" => 5e7,
-        "Dualcaster Mage" | "Twinflame" | "Molten Duplication" | "Gale, Waterdeep Prodigy" => 1e7,
+        "Dualcaster Mage" | "Twinflame" | "Molten Duplication" | "Heat Shimmer" | "Heat Shimmer II" | "Gale, Waterdeep Prodigy" => 1e7,
         _ => 0.0,
     };
     if protect > 0.0 {
@@ -802,7 +802,7 @@ fn run_effect<R: Rng + ?Sized>(
             }
             true
         }
-        "Twinflame" | "Molten Duplication" if shimmer_tokens_on() => {
+        "Twinflame" | "Molten Duplication" | "Heat Shimmer" | "Heat Shimmer II" if shimmer_tokens_on() => {
             // Hasty token copies (sac'd at end of turn) of the creature that best shores up the
             // go-off — see `shimmer_target`. `n` = original + Krark copies of this spell; each makes
             // one token, bounded by the body/token caps so the count can't run away. Marked

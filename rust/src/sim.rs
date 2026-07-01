@@ -252,7 +252,7 @@ const DISCARD_LAND_ON_PLAY: &[&str] = &["Mox Diamond"];
 // Cards Chrome Mox should not imprint (exile) if anything else is available — payoffs/combo pieces.
 const NEVER_IMPRINT: &[&str] = &[
     "Grapeshot", "Brain Freeze", "Underworld Breach",
-    "Gale, Waterdeep Prodigy", "Twinflame", "Molten Duplication", "Dualcaster Mage",
+    "Gale, Waterdeep Prodigy", "Twinflame", "Molten Duplication", "Heat Shimmer", "Heat Shimmer II", "Dualcaster Mage",
 ];
 const RAMP_SPELLS: &[&str] = &["Jeska's Will"];
 
@@ -261,7 +261,8 @@ const CLONES: &[&str] = &["Sakashima of a Thousand Faces", "Glasspool Mimic", "P
 // _ACTION = wishlist._ENGINE | {Twinflame, Dualcaster Mage, Molten Duplication}
 fn is_action(name: &str) -> bool {
     wishlist::in_engine_pub(name)
-        || matches!(name, "Twinflame" | "Dualcaster Mage" | "Molten Duplication")
+        || name == "Dualcaster Mage"
+        || crate::cards::SHIMMERS.contains(&name)
 }
 
 fn play_priority(name: &str) -> Option<i64> {
@@ -1799,7 +1800,7 @@ impl<'a> SimGame<'a> {
                 // they're finishers for the planner rollout, not greedy-ramp casts — exclude them
                 // here so develop never wastes them a turn early.
                 if reg.get(&c).is_instant_or_sorcery()
-                    && !["Grapeshot", "Twinflame", "Molten Duplication"].contains(&c.as_str()) {
+                    && c != "Grapeshot" && !crate::cards::SHIMMERS.contains(&c.as_str()) {
                     let sc = loops::develop_score(state, reg, &c);
                     scores.insert(c, sc);
                 }
@@ -1920,7 +1921,7 @@ impl<'a> SimGame<'a> {
                     .any(|c| matches!(c.as_str(), "Grapeshot" | "Brain Freeze"));
                 let dc = state.hand.iter().any(|c| c == "Dualcaster Mage")
                     || state.has_permanent("Dualcaster Mage");
-                let shim = state.hand.iter().any(|c| matches!(c.as_str(), "Twinflame" | "Molten Duplication"));
+                let shim = state.hand.iter().any(|c| crate::cards::SHIMMERS.contains(&c.as_str()));
                 let win_path = closing || payoff_in_hand || (dc && shim);
                 // Only crack when genuinely FLOODED — a land surplus, not mana-screw. `cands.is_empty()`
                 // also fires when the hand is full of spells you simply can't afford yet (early/screwed);
@@ -2315,7 +2316,7 @@ impl<'a> SimGame<'a> {
         // or a castable Jeska's Will to fund deploying Sakashima {3}{U} mid-go-off and loop it).
         if !self.sak_opp && self.command_zone.iter().any(|c| c == "Sakashima of a Thousand Faces") {
             let st = self.build_state(&pool);
-            let shimmer = ["Molten Duplication", "Twinflame"].iter().any(|sh| {
+            let shimmer = crate::cards::SHIMMERS.iter().any(|sh| {
                 st.hand.iter().any(|c| c == sh)
                     || st.exiled_play.iter().any(|c| c == sh)
                     || loops::can_escape(&st, self.reg, sh)
@@ -2403,7 +2404,7 @@ impl<'a> SimGame<'a> {
         let lib: HashSet<&str> = self.library.iter().map(|s| s.as_str()).collect();
         let cats: [(&str, &[&str]); 4] = [
             ("PAYOFFS", &["Grapeshot", "Brain Freeze"]),
-            ("COMBO", &["Twinflame", "Molten Duplication", "Dualcaster Mage"]),
+            ("COMBO", &["Twinflame", "Molten Duplication", "Heat Shimmer", "Heat Shimmer II", "Dualcaster Mage"]),
             ("MANA-ENG", &[
                 "Storm-Kiln Artist", "Archmage Emeritus", "Birgi, God of Storytelling",
                 "Electro, Assaulting Battery",

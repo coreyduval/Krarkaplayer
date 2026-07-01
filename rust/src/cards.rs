@@ -207,7 +207,7 @@ const SORCERIES: &[&str] = &[
     "Quasiduplicate", "Gamble", "Jeska's Will", "Ponder", "Grapeshot",
     "Twinflame", "Strike It Rich", "Gitaxian Probe", "Rite of Flame", "Molten Duplication",
     "Serum Visions", "Preordain", "Overmaster", "Heroes' Hangout", "Step Through",
-    "Renegade Tactics",
+    "Renegade Tactics", "Heat Shimmer", "Heat Shimmer II",
 ];
 const INSTANTS: &[&str] = &[
     "Brainstorm", "Cyclonic Rift", "Brain Freeze", "Frantic Search", "Snap",
@@ -413,7 +413,11 @@ pub const NO_SOLITAIRE_TARGET: &[&str] = &[
     "Subtlety",
 ];
 pub const FREE_COUNTERS: &[&str] = &["Deflecting Swat"];
-pub const NEEDS_OWN_CREATURE: &[&str] = &["Twinflame", "Molten Duplication", "Quasiduplicate", "Snap"];
+/// Hasty-token-copy shimmers (Krark-shimmer combo pieces + Dualcaster fuel). Central list so adding a
+/// shimmer only touches the registry + cards.rs; every recognition site routes through this.
+pub const SHIMMERS: &[&str] = &["Twinflame", "Molten Duplication", "Heat Shimmer", "Heat Shimmer II"];
+pub const NEEDS_OWN_CREATURE: &[&str] =
+    &["Twinflame", "Molten Duplication", "Heat Shimmer", "Heat Shimmer II", "Quasiduplicate", "Snap"];
 
 pub fn castable_in_solitaire(name: &str, has_own_creature: bool) -> bool {
     if NO_SOLITAIRE_TARGET.contains(&name) {

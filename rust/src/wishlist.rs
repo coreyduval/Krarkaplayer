@@ -45,7 +45,7 @@ const DRAW_OUTLETS: &[&str] = &[
 ];
 
 const COMBO_DUALCASTER: &str = "Dualcaster Mage";
-const COMBO_SHIMMERS: &[&str] = &["Twinflame", "Molten Duplication"];
+const COMBO_SHIMMERS: &[&str] = crate::cards::SHIMMERS;
 
 const ENGINE_EXTRA: &[&str] = &[
     "Krark's Thumb", "Baral, Chief of Compliance", "Underworld Breach",
