@@ -40,15 +40,13 @@ use cards::Registry;
 /// filler to 98 (registry already holds 1 Island + 1 Mountain, so add 7 + 11 -> 8/12).
 fn build_deck(reg: &Registry, islands: u32, mountains: u32) -> Vec<String> {
     const COMMANDERS: [&str; 2] = ["Krark, the Thumbless", "Sakashima of a Thousand Faces"];
-    // Cards kept in the registry for their CardDef (win predicate / selftests reference them) but
-    // intentionally NOT in the deck. Thassa's Oracle was cut but win.rs still references it.
-    // Thassa's Oracle: cut but kept for win.rs CardDef. Crimson Wisps / Renegade Tactics / Accelerate:
-    // red 1-mana cantrips kept in the registry for A/B testing (added to a deck via --add), not in the
-    // default list.
+    // Cards kept in the registry but intentionally NOT in the deck. Crimson Wisps / Renegade Tactics /
+    // Accelerate: red 1-mana cantrips kept in the registry for A/B testing (added to a deck via --add),
+    // not in the default list.
     // Extra fetches (Misty Rainforest..Flooded Strand) kept in the registry for --add A/B testing of
     // higher fetch counts; not in the default 3-fetch deck.
-    const DECK_EXCLUDE: [&str; 14] = [
-        "Thassa's Oracle", "Crimson Wisps", "Renegade Tactics", "Accelerate",
+    const DECK_EXCLUDE: [&str; 13] = [
+        "Crimson Wisps", "Renegade Tactics", "Accelerate",
         "Misty Rainforest", "Arid Mesa", "Wooded Foothills", "Flooded Strand",
         "The One Ring", "Electro, Assaulting Battery", "Grim Monolith",
         // Cut for Molten Duplication / Flare of Duplication (maindeck). Treasonous Ogre stays modeled
@@ -142,7 +140,7 @@ fn percentile(sorted: &[i64], pct: f64) -> i64 {
     sorted[idx.min(sorted.len() - 1)]
 }
 
-fn run_sweep(reg: &Registry, n_games: u64, trials: u64, max_turns: i64, win_threshold: f64, seed_base: u64, fizzle_fatal: bool, send_gate: f64, fast_mull: bool, rock_cutoff: i64, check_first: bool, cuts: Vec<String>, adds: Vec<String>) {
+fn run_sweep(reg: &Registry, n_games: u64, trials: u64, max_turns: i64, win_threshold: f64, seed_base: u64, fizzle_fatal: bool, send_gate: f64, fast_mull: bool, rock_cutoff: i64, check_first: bool, t3_probe: bool, cuts: Vec<String>, adds: Vec<String>) {
     let mut deck = build_deck(reg, 6, 8);
     // Leave-one-out / manabase swaps: drop one copy per `--cut`, append one copy per `--add`.
     // A land<->spell swap is `--cut Mountain --add Ponder` (deck stays 98). No-op if a cut isn't present.
@@ -306,6 +304,65 @@ fn run_sweep(reg: &Registry, n_games: u64, trials: u64, max_turns: i64, win_thre
             println!("    {:<36} {:5} ({:4.1}%)", name, cnt, 100.0 * cnt as f64 / total_wins as f64);
         }
     }
+    // --- Sakashima-deploy probe (option-a lever sizing) ---
+    // How often a game sat in a state where the namesake krark-shimmer line was structurally
+    // available but Sakashima was stranded in the command zone (a kill the go-off can't currently
+    // reach because it never deploys Sakashima mid-combo). Split by eventual outcome: among
+    // opportunity games, "lost / won late" ~ a potential WIN-RATE gain; "won anyway" ~ a SPEED gain.
+    let opp: Vec<&sim::GameResult> = results.iter().filter(|r| r.sak_opp).collect();
+    let opp_n = opp.len();
+    let opp_lost = opp.iter().filter(|r| !r.won).count();
+    let opp_won = opp_n - opp_lost;
+    let opp_won_after = opp.iter().filter(|r| r.won && r.turn > r.sak_opp_turn).count();
+    let mean_opp_turn = if opp_n > 0 {
+        opp.iter().map(|r| r.sak_opp_turn).sum::<i64>() as f64 / opp_n as f64
+    } else {
+        0.0
+    };
+    println!(
+        "  --- SAKASHIMA-DEPLOY PROBE (lever size) ---  opportunity in {}/{} games ({:.1}%); mean first-opp turn {:.1}",
+        opp_n, total, 100.0 * opp_n as f64 / total as f64, mean_opp_turn
+    );
+    println!(
+        "      of those: {} lost the game (potential win-rate lever), {} won anyway ({} won AFTER the opp turn — potential speed lever)",
+        opp_lost, opp_won, opp_won_after
+    );
+    // --- T3-both-commanders card-lift probe (--t3-probe) ---
+    // Which opening-hand cards drive Krark + Sakashima both on board by turn 3? For each card, the
+    // rate of T3-both among games whose OPENING HAND held it, vs the base rate. Lift = conditional/base.
+    if t3_probe {
+        let t3_n = results.iter().filter(|r| r.t3_both).count();
+        let base = t3_n as f64 / total as f64;
+        let mut open: std::collections::HashMap<&str, u64> = std::collections::HashMap::new();
+        let mut hit: std::collections::HashMap<&str, u64> = std::collections::HashMap::new();
+        for r in &results {
+            let uniq: std::collections::HashSet<&str> = r.opening.iter().map(|s| s.as_str()).collect();
+            for c in uniq {
+                *open.entry(c).or_insert(0) += 1;
+                if r.t3_both {
+                    *hit.entry(c).or_insert(0) += 1;
+                }
+            }
+        }
+        println!(
+            "  --- T3-BOTH-COMMANDERS PROBE ---  base rate {:.1}% ({}/{} games hit Krark+Sakashima by T3)",
+            100.0 * base, t3_n, total
+        );
+        let mut rows: Vec<(&str, u64, f64, f64)> = open
+            .iter()
+            .filter(|(_, &o)| o >= (total as u64 / 100).max(20)) // seen in >=1% of games (min 20)
+            .map(|(&c, &o)| {
+                let h = *hit.get(c).unwrap_or(&0);
+                let cond = h as f64 / o as f64;
+                (c, o, cond, if base > 0.0 { cond / base } else { 0.0 })
+            })
+            .collect();
+        rows.sort_by(|a, b| b.3.partial_cmp(&a.3).unwrap_or(std::cmp::Ordering::Equal));
+        println!("      {:<34} {:>7} {:>9} {:>6}", "card (in opening hand)", "games", "P(T3)", "lift");
+        for (c, o, cond, lift) in rows.iter().take(30) {
+            println!("      {:<34} {:>7} {:>8.1}% {:>5.2}x", c, o, 100.0 * cond, lift);
+        }
+    }
     println!(
         "  {:.1}s total, {:.3}s/game",
         elapsed,
@@ -448,8 +505,7 @@ fn main() {
         "whatif" => {
             // Diagnostic: ENTIRE non-commander deck in hand, N Krark bodies out, varying starting
             // floating mana. Asks the real win-search (solve) whether it can find a storm/payoff kill.
-            // Tests the hypothesis that "drawing the deck" wins for Oracle (empty library) but NOT for
-            // storm payoffs (which still need MANA to cast the chain — drawing != casting).
+            // Storm payoffs still need MANA to cast the chain (drawing the deck != casting it).
             use game_state::{krark_body, GameState};
             use rand::SeedableRng;
             // --no-combo: forbid the Dualcaster/Twinflame infinite, forcing a STORM win.
@@ -621,6 +677,9 @@ fn main() {
             loops::PRE_KRARK_DIG.set(args.iter().any(|a| a == "--precrark-dig")).ok();
             sim::SMART_LAND.set(!args.iter().any(|a| a == "--no-smart-land")).ok();
             sim::ADAPTIVE_GATE.set(args.iter().any(|a| a == "--adaptive-gate")).ok();
+            sim::SAK_DEPLOY.set(!args.iter().any(|a| a == "--no-sak-deploy")).ok();
+            sim::KEEP_ROCK_SOURCES.set(!args.iter().any(|a| a == "--no-keep-rock-sources")).ok();
+            sim::T3_MULL.set(args.iter().any(|a| a == "--t3-mull")).ok();
             wishlist::JESKA_BOOST.set(!args.iter().any(|a| a == "--no-jeska-boost")).ok();
             wishlist::TUTOR_CREATURE_KEEP.set(args.iter().any(|a| a == "--tutor-keep")).ok();
             resolver::SHIMMER_TOKENS.set(!args.iter().any(|a| a == "--no-shimmer-tokens")).ok();
@@ -641,9 +700,10 @@ fn main() {
             // stop deploying mana rocks once Krark out + this many mana sources held; default off.
             let rock_cutoff: i64 = arg_val(&args, "--rock-cutoff").and_then(|v| v.parse().ok()).unwrap_or(i64::MAX);
             let check_first = args.iter().any(|a| a == "--check-first");
+            let t3_probe = args.iter().any(|a| a == "--t3-probe");
             let cuts = arg_vals(&args, "--cut");
             let adds = arg_vals(&args, "--add");
-            run_sweep(&reg, games, trials, max_turns, win_threshold, seed_base, fizzle_fatal, send_gate, fast_mull, rock_cutoff, check_first, cuts, adds);
+            run_sweep(&reg, games, trials, max_turns, win_threshold, seed_base, fizzle_fatal, send_gate, fast_mull, rock_cutoff, check_first, t3_probe, cuts, adds);
         }
         "audit" => {
             sim::MULL_CFG.set(parse_mull_cfg(&args)).ok();
@@ -703,6 +763,9 @@ fn main() {
             planner::RITUAL_PRELUDE.set(args.iter().any(|a| a == "--ritual-prelude")).ok();
             sim::DEAD_HAND_MULL.set(!args.iter().any(|a| a == "--no-dead-hand-mull")).ok();
             loops::PRE_KRARK_DIG.set(args.iter().any(|a| a == "--precrark-dig")).ok();
+            sim::SAK_DEPLOY.set(!args.iter().any(|a| a == "--no-sak-deploy")).ok();
+            sim::KEEP_ROCK_SOURCES.set(!args.iter().any(|a| a == "--no-keep-rock-sources")).ok();
+            sim::T3_MULL.set(args.iter().any(|a| a == "--t3-mull")).ok();
             // Verbose single-game log: `krarksim diag --seed N [--luck L] [--max-turns T]`.
             let seed: u64 = arg_val(&args, "--seed").and_then(|v| v.parse().ok()).unwrap_or(0);
             let luck: u64 = arg_val(&args, "--luck").and_then(|v| v.parse().ok()).unwrap_or(0);

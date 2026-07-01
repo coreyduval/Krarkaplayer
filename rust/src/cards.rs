@@ -199,7 +199,7 @@ const CREATURES: &[&str] = &[
     "Okaun, Eye of Chaos", "Ragavan, Nimble Pilferer", "Snapcaster Mage",
     "Spellseeker", "Storm-Kiln Artist", "Tavern Scoundrel", "Urabrask",
     "Veyran, Voice of Duality", "Vivi Ornitier", "Zndrsplt, Eye of Wisdom",
-    "Glasspool Mimic", "Phantasmal Image", "Subtlety", "Thassa's Oracle",
+    "Glasspool Mimic", "Phantasmal Image", "Subtlety",
     "Valley Floodcaller", "Phyrexian Metamorph", "Mockingbird", "Roaming Throne",
     "Electro, Assaulting Battery", "Treasonous Ogre",
 ];

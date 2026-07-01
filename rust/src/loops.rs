@@ -10,7 +10,7 @@ use crate::win;
 use rand::Rng;
 use std::collections::HashSet;
 
-pub const DEV_PAYOFFS: &[&str] = &["Grapeshot", "Thassa's Oracle", "Brain Freeze"];
+pub const DEV_PAYOFFS: &[&str] = &["Grapeshot", "Brain Freeze"];
 
 // Aggressive cantrips: develop_score stops charging the mana cost of CANTRIP_LOOP cards (draw /
 // card-selection). Rationale — the deck is mana-saturated (~17% of dev-turn mana floats away unused),
@@ -65,7 +65,6 @@ fn library_reduction(card: &str) -> i64 {
     }
 }
 
-const MILL_WEIGHT: f64 = 1.5;
 const BURN_WEIGHT: f64 = 1.5;
 const DIG_WEIGHT: f64 = 1.0;
 const TREASURE_BANK_WEIGHT: f64 = 0.5;
@@ -73,7 +72,7 @@ const TREASURE_BANK_WEIGHT: f64 = 0.5;
 const TREASURE_SPELLS: &[&str] = &["Strike It Rich", "An Offer You Can't Refuse"];
 const BURN_ENGINES: &[&str] = &["Urabrask", "Vivi Ornitier"];
 
-const PAYOFF_ONLY: &[&str] = &["Grapeshot", "Thassa's Oracle"];
+const PAYOFF_ONLY: &[&str] = &["Grapeshot"];
 
 const MANA_POSITIVE_LOOP: &[&str] = &[
     "Jeska's Will", "Rite of Flame", "Pyretic Ritual", "Desperate Ritual", "Strike It Rich",
@@ -84,9 +83,8 @@ const CANTRIP_LOOP: &[&str] = &[
     "Overmaster", "Expedite", "Might of the Meek", "Heroes' Hangout",
     "Crimson Wisps", "Renegade Tactics", "Accelerate",
     // NOTE: Gamble is deliberately NOT here. It's a tutor with a RANDOM-discard cost, not a free
-    // loop cantrip — looping it repeatedly random-discards key cards (Grapeshot, doublers). The old
-    // "bounded by finding Thassa's Oracle" justification died when Oracle was cut. Gamble is valued
-    // as a one-shot tutor in develop_score instead: Gamble once for the best piece, then cast it.
+    // loop cantrip — looping it repeatedly random-discards key cards (Grapeshot, doublers). Gamble is
+    // valued as a one-shot tutor in develop_score instead: Gamble once for the best piece, then cast it.
 ];
 // Loopable counters/instants: cast for magecraft/storm value off a per-cast engine. Free ones
 // (Pact / Fierce Guardianship / Deflecting Swat / Mogg Salvage) loop for 0 mana; the {U} ones
@@ -306,25 +304,23 @@ pub fn winning_payoff(s: &GameState, reg: &Registry, payoffs: &[&str], need_life
     if s.opponent_library.iter().all(|l| *l <= 0) {
         return Some("mill".to_string());
     }
-    if payoffs.contains(&"Thassa's Oracle") && (s.library.len() as i64) <= s.blue_devotion(reg) {
-        if s.has_permanent("Thassa's Oracle")
-            || (castable_now(s, reg, "Thassa's Oracle") && convert_available(s, reg, "U", 2))
-        {
-            return Some("Thassa's Oracle".to_string());
-        }
-    }
     if payoffs.contains(&"Grapeshot") && s.storm_count + 1 >= need_life {
-        if castable_now(s, reg, "Grapeshot") && convert_available(s, reg, "R", 1) {
+        // Full cost, not just the red pip: Grapeshot is {1}{R} (2 mana). convert_available folds in
+        // colored/wildcard/treasure/tap/hand sources; requiring the whole cost in-color is conservative
+        // (won't over-declare) — the storm kill floats plenty of red/Treasures by the time it fires.
+        let cost: i64 = s.cast_cost(reg, "Grapeshot").values().sum();
+        if castable_now(s, reg, "Grapeshot") && convert_available(s, reg, "R", cost) {
             return Some("Grapeshot".to_string());
         }
     }
     if payoffs.contains(&"Brain Freeze") {
         let mill_each = 3 * (s.storm_count + 1);
         let libs: Vec<i64> = s.opponent_library.iter().copied().filter(|l| *l > 0).collect();
+        let cost: i64 = s.cast_cost(reg, "Brain Freeze").values().sum(); // {1}{U} = 2, not just the U pip
         if !libs.is_empty()
             && mill_each >= *libs.iter().max().unwrap()
             && castable_now(s, reg, "Brain Freeze")
-            && convert_available(s, reg, "U", 1)
+            && convert_available(s, reg, "U", cost)
         {
             return Some("Brain Freeze".to_string());
         }
@@ -385,11 +381,27 @@ fn flare_magecraft_lethal(s: &GameState, reg: &Registry) -> bool {
 /// refunds the {1}{R} recast. Krark's Thumb isn't required; it only makes the 1-loss steer reliable,
 /// and the split self-corrects as the army grows. Army grows unbounded -> lethal combat.
 fn krark_shimmer_lethal(s: &GameState, reg: &Registry) -> bool {
+    let on_board = s.has_sakashima_break();
+    // Deployable path is flag-gated: `s.sakashima_cmd` is true ONLY under `--sak-deploy` (a command-
+    // zone Sakashima exposed by build_state); it is always false otherwise, so with the flag off every
+    // branch below collapses to the original on-board behavior — byte-identical baseline.
+    let deployable = s.sakashima_cmd && !on_board;
+    if !on_board && !deployable {
+        return false;
+    }
     // Reliability gate (not a piece requirement): the loop hinges on steering each cast to a 1-loss/
     // rest-win split. Krark's Thumb makes that near-certain; without it, >=3 Krarks already keeps each
     // cast >=75% to continue and the split self-corrects as the army grows — so treat it as lethal at
     // Thumb OR >=3 bodies, and leave the 2-body no-Thumb case to the probabilistic rollout.
-    if !s.has_sakashima_break() || !(s.has_krarks_thumb() || s.krark_bodies(reg) >= 3) {
+    // Deployable path: accept >=1 body — with Sakashima + renewable mana the hasty-Krark army grows
+    // ~E[wins]/cast in expectation and self-corrects, and a goldfish turn has no disruption, so even a
+    // slow-growing army reaches lethal. This only fires once the (real) mana check below passes.
+    let bodies_ok = if on_board {
+        s.has_krarks_thumb() || s.krark_bodies(reg) >= 3
+    } else {
+        s.krark_bodies(reg) >= 1
+    };
+    if !bodies_ok {
         return false;
     }
     // Renewable mana to refund the {1}{R} shimmer recast each loop. Storm-Kiln (Treasure per
@@ -398,21 +410,64 @@ fn krark_shimmer_lethal(s: &GameState, reg: &Registry) -> bool {
     // a CREATURE, so you steer one win to copy Birgi/Urabrask itself → two → +2 red/cast = free, then
     // pile up token Krarks. So any one engine piece + a few Krarks bootstraps it. A loopable ritual in
     // hand loops for net mana via the Krark return-trick.
-    let sustain = ["Storm-Kiln Artist", "Tavern Scoundrel", "Birgi, God of Storytelling", "Urabrask"]
+    let mut sustain = ["Storm-Kiln Artist", "Tavern Scoundrel", "Birgi, God of Storytelling", "Urabrask"]
         .iter()
         .any(|e| s.has_permanent(e))
         || ["Brightstone Ritual", "Pyretic Ritual", "Desperate Ritual", "Rite of Flame"]
             .iter()
             .any(|r| s.hand.iter().any(|c| c == r));
+    // Deployable path: Sakashima enters as a copy of Krark, so the army starts at 2 bodies (never 1)
+    // and grows ~geometrically — each cast's Krark triggers copy the shimmer into more token Krarks,
+    // so flips scale with the army and it reaches lethal in ~7-11 casts. The only real yard risk (all
+    // flips win -> shimmer resolves to the graveyard instead of returning to hand, P=0.5^flips) is
+    // front-loaded on the FIRST cast. Declaring P=1.0 is honest only if that cast-1 yard is negligible
+    // or can be CONTINUED past:
+    //   - post-deploy flips >= 4  -> cast-1 yard <= 6% and geometric growth carries it (~93%+), or
+    //   - Krark's Thumb           -> never yards (steer to exactly one loss), or
+    //   - Underworld Breach in play -> re-escape the yarded shimmer from the graveyard, or
+    //   - a SECOND shimmer accessible -> switch to it (army already bigger, so it's ~safe).
+    // A 2-body / no-doubler / single-shimmer / no-Breach line is only ~70% -> not booked as certain.
+    if deployable {
+        let post_flips = (s.krark_bodies(reg) + 1) * (1 + s.trigger_doublers(reg));
+        let shimmers = ["Molten Duplication", "Twinflame"]
+            .iter()
+            .filter(|sh| {
+                s.hand.iter().any(|c| &c.as_str() == *sh)
+                    || s.exiled_play.iter().any(|c| &c.as_str() == *sh)
+                    || can_escape(s, reg, sh)
+            })
+            .count();
+        let reliable = post_flips >= 4
+            || s.has_krarks_thumb()
+            || s.has_permanent("Underworld Breach")
+            || shimmers >= 2;
+        if !reliable {
+            return false;
+        }
+        // Renewable mana to fund the ~10 {1}{R} shimmer recasts: a loopable, net-positive Jeska's Will
+        // (returns to hand on a lost flip, +~3 mana/cast) or LED re-escaped via Breach both sustain it.
+        if !sustain {
+            sustain = castable_now(s, reg, "Jeska's Will") || can_escape(s, reg, "Lion's Eye Diamond");
+        }
+    }
     if !sustain {
         return false;
     }
-    let access = |name: &str| {
-        s.hand.iter().any(|c| c == name) || s.exiled_play.iter().any(|c| c == name)
+    // The shimmer must be castable from hand / Jeska-exile (or, on the deployable path, escapable via
+    // Breach), and the pool must cover the first shimmer cast PLUS the one-time Sakashima {3}{U} deploy.
+    let sak_cost: crate::cards::ManaCost = if deployable {
+        s.cast_cost(reg, "Sakashima of a Thousand Faces").into_owned()
+    } else {
+        crate::cards::ManaCost::new()
     };
-    ["Twinflame", "Molten Duplication"]
-        .iter()
-        .any(|sh| access(sh) && s.mana.can_pay(&s.cast_cost(reg, sh)))
+    let access = |name: &str| {
+        s.hand.iter().any(|c| c == name)
+            || s.exiled_play.iter().any(|c| c == name)
+            || (deployable && can_escape(s, reg, name))
+    };
+    ["Twinflame", "Molten Duplication"].iter().any(|sh| {
+        access(sh) && s.mana.can_pay(&add_costs(&[&sak_cost, s.cast_cost(reg, sh).as_ref()]))
+    })
 }
 
 /// True if Dualcaster Mage + a Twinflame/Molten Duplication can fire the infinite-hasty-attackers combo
@@ -500,9 +555,8 @@ pub fn do_cast<R: Rng + ?Sized>(
     let mut choices = Choices::default();
     if card == "Brain Freeze" {
         // Self-mill (own library -> graveyard) is only correct for the Underworld Breach line, where
-        // it feeds escape fuel + storm. Chasing an Oracle line by self-milling is too greedy — it
-        // buries undrawn combo pieces (e.g. a Twinflame the go-off still needs), which costs more
-        // games than the rare self-mill->Oracle line wins. Default to milling OPPONENTS (toward a
+        // it feeds escape fuel + storm. Otherwise self-milling is too greedy — it buries undrawn combo
+        // pieces (e.g. a Twinflame the go-off still needs). Default to milling OPPONENTS (toward a
         // mill-kill); only self-mill when Underworld Breach is in play or in hand.
         let breach = s.has_permanent("Underworld Breach")
             || s.hand.iter().any(|c| c == "Underworld Breach");
@@ -684,7 +738,7 @@ pub fn develop_candidates(s: &GameState, reg: &Registry) -> Vec<(String, String)
         if !cd.is_instant_or_sorcery() {
             return false;
         }
-        // PAYOFF_ONLY (Grapeshot / Oracle) are normally one-shot payoffs, not develop/rollout casts.
+        // PAYOFF_ONLY (Grapeshot) are normally one-shot payoffs, not develop/rollout casts.
         // EXCEPTION — Grapeshot LOOPS with Krark's Thumb + a body: you steer one flip to a LOSS to
         // return it to hand, so each recast deals (resolutions + storm) damage and comes back. Then
         // it's a loopable burn engine, and the rollout can ride the loop to lethal at a far lower
@@ -760,7 +814,6 @@ fn finish_progress(
     card: &str,
     e_damage: f64,
     e_effect_resolutions: f64,
-    e_draws: f64,
 ) -> f64 {
     let need_life: i64 = s.opponent_life.iter().copied().filter(|l| *l > 0).sum();
     if e_damage > 0.0 && need_life > 0 {
@@ -769,37 +822,26 @@ fn finish_progress(
         }
         return 0.0;
     }
-    let oracle = s.hand.iter().any(|c| c == "Thassa's Oracle")
-        || s.has_permanent("Thassa's Oracle")
-        || can_escape(s, reg, "Thassa's Oracle");
-    if !oracle {
-        // Cantrips dig for value once a Krark body is out (flips multiply each draw). Before that
-        // they normally score 0 — held for the go-off, where they draw many instead of one. EXCEPTION:
-        // genuine mana-screw (no body AND <2 mana sources in play) — then durdling is worse than
-        // spending a cantrip to find a land, so credit the dig to climb out of the screw.
-        let screwed = s.flips_per_cast(reg) < 1
-            && s.battlefield
-                .iter()
-                .filter(|p| crate::tables::mana_source(p.effective_name()).is_some())
-                .count()
-                < 2
-            // ...and no land/rock in hand to fix it naturally. Otherwise it's just a normal early
-            // turn (you'll add mana next turn), and the cantrip is worth more held for the go-off.
-            && !s.hand.iter().any(|c| crate::tables::mana_source(c).is_some());
-        if CANTRIP_LOOP.contains(&card) && (s.flips_per_cast(reg) >= 1 || pre_krark_dig() || screwed) {
-            return library_reduction(card) as f64 * e_effect_resolutions * DIG_WEIGHT;
-        }
-        return 0.0;
+    // Cantrips dig for value once a Krark body is out (flips multiply each draw). Before that they
+    // normally score 0 — held for the go-off, where they draw many instead of one. EXCEPTION: genuine
+    // mana-screw (no body AND <2 mana sources in play) — then durdling is worse than spending a
+    // cantrip to find a land, so credit the dig to climb out of the screw.
+    let screwed = s.flips_per_cast(reg) < 1
+        && s.battlefield
+            .iter()
+            .filter(|p| crate::tables::mana_source(p.effective_name()).is_some())
+            .count()
+            < 2
+        // ...and no land/rock in hand to fix it naturally. Otherwise it's just a normal early turn
+        // (you'll add mana next turn), and the cantrip is worth more held for the go-off.
+        && !s.hand.iter().any(|c| crate::tables::mana_source(c).is_some());
+    if CANTRIP_LOOP.contains(&card) && (s.flips_per_cast(reg) >= 1 || pre_krark_dig() || screwed) {
+        return library_reduction(card) as f64 * e_effect_resolutions * DIG_WEIGHT;
     }
-    let gap = s.library.len() as i64 - s.blue_devotion(reg);
-    if gap <= 0 {
-        return 0.0;
-    }
-    let removed = library_reduction(card) as f64 * e_effect_resolutions + e_draws;
-    removed.min(gap as f64) * MILL_WEIGHT
+    0.0
 }
 
-const SINK_PAYOFFS: &[&str] = &["Grapeshot", "Thassa's Oracle", "Brain Freeze"];
+const SINK_PAYOFFS: &[&str] = &["Grapeshot", "Brain Freeze"];
 
 fn sink_perm(name: &str) -> bool {
     // wishlist._BODIES | _DOUBLERS | _DRAW_ENGINES | _MANA_ENGINES | extra set
@@ -894,7 +936,7 @@ pub fn develop_score(s: &GameState, reg: &Registry, card: &str) -> f64 {
     if aggro_cantrips() && CANTRIP_LOOP.contains(&card) {
         cost = 0;
     }
-    let finish = finish_progress(s, reg, card, a.e_damage, a.e_effect_resolutions, a.e_draws);
+    let finish = finish_progress(s, reg, card, a.e_damage, a.e_effect_resolutions);
     let treasures_made = a.e_treasures
         + if TREASURE_SPELLS.contains(&card) { a.e_effect_resolutions } else { 0.0 };
     let pure_mana = a.e_draws == 0.0
@@ -1569,9 +1611,9 @@ pub fn selftest(reg: &Registry) {
     {
         let mut s = GameState {
             library: vec!["Island".into(); 40],
-            hand: vec!["Jeska's Will".into(), "Grapeshot".into(), "Thassa's Oracle".into()],
+            hand: vec!["Jeska's Will".into(), "Grapeshot".into()],
             battlefield: board(),
-            opponent_life: vec![40, 40, 40],
+            opponent_life: vec![10, 10, 10],
             ..Default::default()
         };
         s.mana.add("R", 1);
@@ -1640,6 +1682,42 @@ pub fn selftest(reg: &Registry) {
         let rep3 = detect_loops(&lp3, reg);
         assert!(rep3.confirmed.is_empty() && rep3.candidates.iter().any(|c| c.1.contains("Breach")));
         println!("[ok] loops: Breach+LED+Brain Freeze -> candidate, not asserted");
+    }
+
+    // Sakashima-deploy lever (`--sak-deploy`): a command-zone Sakashima + Krark + an accessible
+    // shimmer + the Jeska's-Will mana engine + mana for {3}{U}+shimmer is recognized as a combat kill
+    // ONLY when build_state has exposed the deployable Sakashima (sakashima_cmd). It ALSO requires
+    // Underworld Breach IN PLAY so a first-cast yarded shimmer (P=0.5^flips) can be recovered — without
+    // it, declaring P=1.0 would be dishonest. Flag off -> sakashima_cmd false -> not lethal.
+    {
+        let mut s = GameState {
+            library: vec!["Island".into(); 40],
+            hand: vec!["Molten Duplication".into(), "Jeska's Will".into()],
+            battlefield: vec![
+                krark_body("Krark, the Thumbless", None, false),
+                Permanent { summoning_sick: false, ..Permanent::new("Underworld Breach") },
+            ],
+            opponent_life: vec![160],
+            ..Default::default()
+        };
+        s.mana.add("*", 8); // wildcard covers Sakashima {3}{U} + the shimmer cast
+        assert!(
+            winning_payoff(&s, reg, DEV_PAYOFFS, 160).is_none(),
+            "flag off (sakashima_cmd=false) must NOT recognize the deploy line"
+        );
+        s.sakashima_cmd = true;
+        assert_eq!(
+            winning_payoff(&s, reg, DEV_PAYOFFS, 160).as_deref(),
+            Some("combat"),
+            "deployable Sakashima + Krark + shimmer + Jeska + Breach-in-play + mana -> combat"
+        );
+        // Recoverability gate: strip Breach from play -> a yarded shimmer is stranded -> NOT lethal.
+        s.battlefield.retain(|p| p.name != "Underworld Breach");
+        assert!(
+            winning_payoff(&s, reg, DEV_PAYOFFS, 160).is_none(),
+            "no Breach in play -> yarded shimmer unrecoverable -> must NOT claim a kill"
+        );
+        println!("[ok] loops: --sak-deploy kill needs Breach-in-play recovery (inert when off / no Breach)");
     }
 
     println!("loops selftest passed.");

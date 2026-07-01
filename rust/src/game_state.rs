@@ -355,6 +355,12 @@ pub struct GameState {
     /// (persists across turns). Its {0} once-per-turn ability adds `vivi_power` U/R (modeled as `*`).
     pub vivi_power: i64,
     pub vivi_mana_used: bool,
+
+    /// Sakashima-deploy lever (`--sak-deploy`, default off): true when Sakashima of a Thousand Faces
+    /// is available in the command zone, so the kill recognizer may treat the namesake legend-break as
+    /// reachable by deploying it ({3}{U}) mid-go-off. Set ONLY by `build_state` when the flag is on;
+    /// always false otherwise, so flag-off behavior is identical. See `sakashima_break_avail`.
+    pub sakashima_cmd: bool,
 }
 
 impl Default for GameState {
@@ -378,6 +384,7 @@ impl Default for GameState {
             game_result: None,
             vivi_power: 0,
             vivi_mana_used: false,
+            sakashima_cmd: false,
         }
     }
 }
@@ -580,13 +587,6 @@ impl GameState {
         } else {
             Cow::Borrowed(base)
         }
-    }
-
-    pub fn blue_devotion(&self, reg: &Registry) -> i64 {
-        self.battlefield
-            .iter()
-            .map(|p| p.functions_as(reg).blue_pips())
-            .sum()
     }
 
     pub fn has_permanent(&self, effective_name: &str) -> bool {

@@ -19,7 +19,7 @@ fn tutor_creature_keep() -> bool {
 }
 const TUTOR_CREATURES: &[&str] = &["Spellseeker", "Imperial Recruiter"];
 
-const PAYOFFS: &[&str] = &["Thassa's Oracle", "Grapeshot", "Brain Freeze"];
+const PAYOFFS: &[&str] = &["Grapeshot", "Brain Freeze"];
 const BODIES: &[&str] = &[
     "Krark, the Thumbless", "Sakashima of a Thousand Faces", "Glasspool Mimic", "Phantasmal Image",
     "Phyrexian Metamorph", "Mockingbird",
@@ -189,7 +189,7 @@ pub fn card_value(s: &GameState, reg: &Registry, name: &str, for_tutor: bool) ->
 
     if PAYOFFS.contains(&name) {
         if !for_tutor {
-            score += if name == "Thassa's Oracle" { 45.0 } else { 15.0 };
+            score += 15.0;
         }
         if !accessible && ready_to_finish(s, reg, name) {
             score += 100.0;

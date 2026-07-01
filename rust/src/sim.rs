@@ -15,7 +15,7 @@ use rand::{Rng, SeedableRng};
 use std::collections::{HashMap, HashSet};
 use std::hash::{Hash, Hasher};
 
-const DEV_PAYOFFS: &[&str] = &["Grapeshot", "Thassa's Oracle", "Brain Freeze"];
+const DEV_PAYOFFS: &[&str] = &["Grapeshot", "Brain Freeze"];
 const MAX_HAND_SIZE: usize = 7;
 
 /// Verbose-only: render a cast cost HashMap as a stable string, e.g. "{U}{1}" or "{2}{R}".
@@ -69,6 +69,16 @@ fn mana_rocks() -> &'static [&'static str] {
         "Simian Spirit Guide", "Talisman of Creativity", "Grim Monolith",
     ]
 }
+
+/// Permanent rocks that count as a keepable mana SOURCE alongside lands (the mulligan requires 2
+/// sources, not 2 lands). These are the ones that ADD a real, self-sufficient source to a thin hand.
+/// Deliberately EXCLUDES: one-shots (Lotus Petal / Simian — one mana then gone); Mox Diamond (pitches
+/// a land to stay, so 1 land + Mox Diamond is still ~1 source, not additive); creature/legend-gated
+/// rocks (Springleaf needs a creature, Mox Amber a legendary in play). The T3-both probe ranks those
+/// three high only because the hands holding them ALSO carry extra lands — they don't rescue a 1-lander.
+const KEEP_MANA_ROCKS: &[&str] = &[
+    "Sol Ring", "Arcane Signet", "Chrome Mox", "Talisman of Creativity", "Mana Vault", "Grim Monolith",
+];
 
 fn lands_set() -> &'static [&'static str] {
     &[
@@ -160,6 +170,31 @@ fn mull_cfg() -> MullCfg {
     MULL_CFG.get().copied().unwrap_or_default()
 }
 
+/// Mulligan keeps on 2 mana SOURCES (lands + reliable permanent rocks) rather than 2 LANDS, and the
+/// floor mulligans a sub-2-source hand deeper instead of force-keeping it (stops keeping 1-landers).
+/// Default ON; opt out `--no-keep-rock-sources` (reverts to the 2-lands rule + dead-hand-only floor).
+pub static KEEP_ROCK_SOURCES: std::sync::OnceLock<bool> = std::sync::OnceLock::new();
+fn keep_rock_sources() -> bool {
+    *KEEP_ROCK_SOURCES.get().unwrap_or(&true)
+}
+
+/// T3-Krarkashima mulligan seek: on the FREE first mulligan, keep only a hand explosive enough to
+/// plausibly deploy Krark + Sakashima ({R}{1} + {3}{U} = 6 mana) by turn 3 — a marquee 2+-mana
+/// accelerant OR 3+ real mana sources — else take the free mull. Default OFF, opt in `--t3-mull`:
+/// A/B-tested at 1200x8 it RAISED the T3-both rate +3.6pts (26.1->29.7%) but COST -0.013 early-win /
+/// -0.1% win-rate. The T3-both proxy diverges from winning (it free-mulligans good engine/action
+/// hands for mana density), so it's kept flag-gated for the record, not shipped.
+pub static T3_MULL: std::sync::OnceLock<bool> = std::sync::OnceLock::new();
+fn t3_mull() -> bool {
+    *T3_MULL.get().unwrap_or(&false)
+}
+/// Accelerants that make the 6-mana-by-T3 double-commander deploy realistic (>=2 mana, or a mox that
+/// nets a source): the marquee fast mana. Excludes Mox Diamond (source-neutral) — see KEEP_MANA_ROCKS.
+const T3_ACCEL: &[&str] = &[
+    "Sol Ring", "Mana Vault", "Grim Monolith", "Lion's Eye Diamond", "Ancient Tomb",
+    "Rite of Flame", "Strike It Rich",
+];
+
 /// Max develop casts per turn (the loop also stops earlier on no carryover-progress / the library
 /// floor). 8 under-develops; 60 over-commits to marginal go-offs; default a middle ground.
 pub static DEV_CAP: std::sync::OnceLock<usize> = std::sync::OnceLock::new();
@@ -173,6 +208,15 @@ fn dev_cap() -> usize {
 pub static SMART_LAND: std::sync::OnceLock<bool> = std::sync::OnceLock::new();
 fn smart_land() -> bool {
     *SMART_LAND.get().unwrap_or(&true)
+}
+
+/// Sakashima-deploy lever (default ON; opt out with `--no-sak-deploy`). When on, the go-off state
+/// exposes a command-zone Sakashima to the kill recognizer, so the namesake krark-shimmer combo can be
+/// reached by deploying Sakashima ({3}{U}) mid-go-off. A/B-validated +0.073 early-win (1.739 -> 1.812)
+/// at 1200x8 with win-by-T12 held at 98.2%. Opt out -> recognizers behave as the pre-lever baseline.
+pub static SAK_DEPLOY: std::sync::OnceLock<bool> = std::sync::OnceLock::new();
+fn sak_deploy() -> bool {
+    *SAK_DEPLOY.get().unwrap_or(&true)
 }
 
 /// Adaptive (turn-indexed) commit gate. When on, `commit_gate` uses a per-turn threshold instead of
@@ -207,7 +251,7 @@ const SAC_ON_PLAY: &[&str] = &["Lotus Petal", "Simian Spirit Guide"];
 const DISCARD_LAND_ON_PLAY: &[&str] = &["Mox Diamond"];
 // Cards Chrome Mox should not imprint (exile) if anything else is available — payoffs/combo pieces.
 const NEVER_IMPRINT: &[&str] = &[
-    "Thassa's Oracle", "Grapeshot", "Brain Freeze", "Underworld Breach",
+    "Grapeshot", "Brain Freeze", "Underworld Breach",
     "Gale, Waterdeep Prodigy", "Twinflame", "Molten Duplication", "Dualcaster Mage",
 ];
 const RAMP_SPELLS: &[&str] = &["Jeska's Will"];
@@ -327,6 +371,13 @@ pub struct SimGame<'a> {
     audit_turn: Vec<(String, i64, bool)>, // sources tapped this turn: (name, units, is_oneshot)
     audit_turn_produced: i64,
 
+    // Sakashima-deploy probe (option-a lever sizing; always on, cheap, stops after first hit/game).
+    sak_opp: bool,
+    sak_opp_turn: i64,
+    // T3-both-commanders probe: the post-mulligan opening hand, for card-lift analysis of what enables
+    // Krark + Sakashima both on board by turn 3.
+    opening_hand: Vec<String>,
+
     // Interactive `play` mode only: a live human opponent consulted on worth-countering casts. None
     // for every goldfish mode (sweep/audit/diag) — the optimizer's clone-based rollouts never see it.
     opponent: Option<Box<dyn crate::play::Opponent>>,
@@ -386,6 +437,9 @@ impl<'a> SimGame<'a> {
             audit: AuditStats::default(),
             audit_turn: Vec::new(),
             audit_turn_produced: 0,
+            sak_opp: false,
+            sak_opp_turn: 0,
+            opening_hand: Vec::new(),
             opponent: None,
             kill_stopped_this_turn: false,
         };
@@ -415,6 +469,16 @@ impl<'a> SimGame<'a> {
 
     pub fn set_check_first(&mut self, b: bool) {
         self.check_kill_first = b;
+    }
+
+    /// Both commanders (Krark + Sakashima) physically on the battlefield.
+    pub fn both_commanders_out(&self) -> bool {
+        self.board.iter().any(|(n, _)| n == "Krark, the Thumbless")
+            && self.board.iter().any(|(n, _)| n == "Sakashima of a Thousand Faces")
+    }
+
+    pub fn opening_hand(&self) -> &[String] {
+        &self.opening_hand
     }
 
     /// Attach a live opponent for the interactive `play` mode. With one set, worth-countering casts
@@ -512,11 +576,21 @@ impl<'a> SimGame<'a> {
         hand.iter().filter(|c| self.reg.get(c).types.contains(&CardType::Land)).count()
     }
 
+    /// Reliable mana sources for the keep decision: lands + permanent KEEP_MANA_ROCKS.
+    fn keep_sources(&self, hand: &[String]) -> usize {
+        self.lands(hand) + hand.iter().filter(|c| KEEP_MANA_ROCKS.contains(&c.as_str())).count()
+    }
+
     fn keepable(&self, hand: &[String]) -> bool {
         let lands = self.lands(hand);
         let rocks = hand.iter().filter(|c| mana_rocks().contains(&c.as_str())).count();
         let mana = lands + rocks;
-        if lands < mull_cfg().min_lands || lands > 4 {
+        if keep_rock_sources() {
+            // Two mana SOURCES (a permanent rock can be the 2nd), but still need at least one real land.
+            if lands < 1 || lands > 4 || self.keep_sources(hand) < mull_cfg().min_lands {
+                return false;
+            }
+        } else if lands < mull_cfg().min_lands || lands > 4 {
             return false;
         }
         if !(2..=5).contains(&mana) {
@@ -534,7 +608,18 @@ impl<'a> SimGame<'a> {
         }
         if mulls == 0 {
             match mull_cfg().gate {
-                MullGate::Fast => return hand.iter().any(|c| FAST_KEEP.contains(&c.as_str())),
+                MullGate::Fast => {
+                    let fast = hand.iter().any(|c| FAST_KEEP.contains(&c.as_str()));
+                    return if t3_mull() {
+                        // Sharpen the free seek toward T3-Krarkashima: a marquee accelerant OR 3+ real
+                        // mana sources (mana density that reaches ~6 by T3), on top of the fast gate.
+                        let dense = self.keep_sources(hand) >= 3
+                            || hand.iter().any(|c| T3_ACCEL.contains(&c.as_str()));
+                        fast && dense
+                    } else {
+                        fast
+                    };
+                }
                 MullGate::Mana => return hand.iter().any(|c| FAST_MANA_KEEP.contains(&c.as_str())),
                 MullGate::None => {}
             }
@@ -579,10 +664,16 @@ impl<'a> SimGame<'a> {
             shuffle(&mut d, rng);
             let hand: Vec<String> = d[..7].to_vec();
             let lib: Vec<String> = d[7..].to_vec();
-            let dead = self.lands(&hand) == 0
-                && !hand.iter().any(|c| LAND_INDEP_MANA.contains(&c.as_str()));
-            // Force-keep at the floor (mulls >= depth), but skip a dead hand until the hard cap.
-            let floor_keep = mulls >= depth && !(dead_hand_mull && dead);
+            // Insufficient mana base: with keep_rock_sources on, that's fewer than 2 mana SOURCES
+            // (lands + permanent rocks) — so 1-landers no longer force-keep at the floor, they
+            // mulligan deeper (up to the hard cap). Off -> the original dead-hand check (zero mana).
+            let insufficient = if keep_rock_sources() {
+                self.lands(&hand) < 1 || self.keep_sources(&hand) < mull_cfg().min_lands
+            } else {
+                self.lands(&hand) == 0 && !hand.iter().any(|c| LAND_INDEP_MANA.contains(&c.as_str()))
+            };
+            // Force-keep at the floor (mulls >= depth), but skip an insufficient hand until the hard cap.
+            let floor_keep = mulls >= depth && !(dead_hand_mull && insufficient);
             let keep = mulls >= hard_cap || floor_keep || self.keepable_at(&hand, mulls);
             if keep {
                 // Multiplayer Commander (this is a 4-player pod): the FIRST mulligan is FREE — it
@@ -600,6 +691,7 @@ impl<'a> SimGame<'a> {
                 }
                 self.mulligans = mulls;
                 self.bottomed = bottom;
+                self.opening_hand = h.clone();
                 self.hand = h;
                 self.library = l;
                 return;
@@ -1098,6 +1190,10 @@ impl<'a> SimGame<'a> {
             our_life: self.our_life,
             vivi_power: self.vivi_power,
             vivi_mana_used: self.vivi_mana_used,
+            // Sakashima-deploy lever: expose a command-zone Sakashima to the kill recognizer only when
+            // the flag is on. Off (default) -> always false -> recognizers behave identically.
+            sakashima_cmd: sak_deploy()
+                && self.command_zone.iter().any(|c| c == "Sakashima of a Thousand Faces"),
             ..Default::default()
         }
     }
@@ -1703,7 +1799,7 @@ impl<'a> SimGame<'a> {
                 // they're finishers for the planner rollout, not greedy-ramp casts — exclude them
                 // here so develop never wastes them a turn early.
                 if reg.get(&c).is_instant_or_sorcery()
-                    && !["Grapeshot", "Thassa's Oracle", "Twinflame", "Molten Duplication"].contains(&c.as_str()) {
+                    && !["Grapeshot", "Twinflame", "Molten Duplication"].contains(&c.as_str()) {
                     let sc = loops::develop_score(state, reg, &c);
                     scores.insert(c, sc);
                 }
@@ -1777,35 +1873,20 @@ impl<'a> SimGame<'a> {
                 deployed_cmd.push(body);
                 recompute(&state, &mut scores, self.reg);
             }
-            let oracle_acc = state.hand.iter().any(|c| c == "Thassa's Oracle")
-                || state.has_permanent("Thassa's Oracle")
-                || loops::can_escape(&state, self.reg, "Thassa's Oracle");
-            let dev = state.blue_devotion(self.reg);
-            // Raw treasures can fuel the dig-out with no engine permanent: with F flips/cast each
-            // cantrip draws ~F/2 cards, so ~2*(lib-dev)/F mana empties the library to devotion
-            // (+2 for Oracle's {U}{U}). Gated on Oracle actually IN HAND so we never deck out
-            // without the payoff secured. Rescues "Oracle + big mana, no engine perm" stalls.
-            let flips = state.flips_per_cast(self.reg).max(1);
-            let lib = state.library.len() as i64;
-            let treasure_dig_out = state.hand.iter().any(|c| c == "Thassa's Oracle")
-                && state.mana.treasures >= 2 * (lib - dev).max(0) / flips + 2;
             let krark = state.krark_bodies(self.reg) >= 1;
             let engine_perm = ["Storm-Kiln Artist", "Birgi, God of Storytelling", "Electro, Assaulting Battery", "Urabrask", "Tavern Scoundrel"]
                 .iter()
                 .any(|n| state.has_permanent(n));
-            // Oracle closes by drawing the library down to devotion, so raw treasures (which fund the
-            // dig) suffice. Grapeshot (burn) and Brain Freeze (mill) close on STORM COUNT, not library
-            // size, so digging past the floor only pays off with a real storm engine that keeps the
-            // count climbing — raw treasures can't reach the ~160-storm burn. Gating the burn/mill
-            // close on an engine permanent keeps it from decking us out chasing an unreachable kill.
-            let oracle_close = oracle_acc && krark && (engine_perm || treasure_dig_out);
+            // Grapeshot (burn) and Brain Freeze (mill) close on STORM COUNT, not library size, so
+            // digging past the floor only pays off with a real storm engine that keeps the count
+            // climbing — raw treasures can't reach the ~160-storm burn. Gating the close on an engine
+            // permanent keeps it from decking us out chasing an unreachable kill.
             let burn_acc = state.hand.iter().any(|c| c == "Grapeshot")
                 || loops::can_escape(&state, self.reg, "Grapeshot");
             let mill_acc = state.hand.iter().any(|c| c == "Brain Freeze")
                 || loops::can_escape(&state, self.reg, "Brain Freeze");
-            let burn_close = (burn_acc || mill_acc) && krark && engine_perm;
-            let closing = oracle_close || burn_close;
-            let floor = 8.max(dev + 4);
+            let closing = (burn_acc || mill_acc) && krark && engine_perm;
+            let floor = 8;
             if !closing && (state.library.len() as i64) <= floor {
                 break;
             }
@@ -1836,7 +1917,7 @@ impl<'a> SimGame<'a> {
                 let payoff_in_hand = state
                     .hand
                     .iter()
-                    .any(|c| matches!(c.as_str(), "Grapeshot" | "Brain Freeze" | "Thassa's Oracle"));
+                    .any(|c| matches!(c.as_str(), "Grapeshot" | "Brain Freeze"));
                 let dc = state.hand.iter().any(|c| c == "Dualcaster Mage")
                     || state.has_permanent("Dualcaster Mage");
                 let shim = state.hand.iter().any(|c| matches!(c.as_str(), "Twinflame" | "Molten Duplication"));
@@ -2227,14 +2308,32 @@ impl<'a> SimGame<'a> {
         self.cleanup_exile_gas();
         self.treasures = pool.treasures;
         self.discard_to_hand_size(&pool);
+        // Sakashima-deploy probe: this turn did NOT win (every win-return is above). Flag the first
+        // non-winning turn where the namesake krark-shimmer line is structurally available but
+        // Sakashima is stranded in the command zone — Krark out, a shimmer accessible (hand /
+        // exiled-to-play / Breach-escapable), and a renewable-mana engine live (the Breach+LED line
+        // or a castable Jeska's Will to fund deploying Sakashima {3}{U} mid-go-off and loop it).
+        if !self.sak_opp && self.command_zone.iter().any(|c| c == "Sakashima of a Thousand Faces") {
+            let st = self.build_state(&pool);
+            let shimmer = ["Molten Duplication", "Twinflame"].iter().any(|sh| {
+                st.hand.iter().any(|c| c == sh)
+                    || st.exiled_play.iter().any(|c| c == sh)
+                    || loops::can_escape(&st, self.reg, sh)
+            });
+            let mana_engine =
+                loops::breach_line_live(&st, self.reg) || loops::castable_now(&st, self.reg, "Jeska's Will");
+            if st.krark_bodies(self.reg) >= 1 && shimmer && mana_engine {
+                self.sak_opp = true;
+                self.sak_opp_turn = self.turn;
+            }
+        }
         if self.verbose {
             let st = self.build_state(&pool);
             println!(
-                "  CHECK   : bodies={} doublers={} flips/cast={} devotion={}  best p_win={:.3}",
+                "  CHECK   : bodies={} doublers={} flips/cast={}  best p_win={:.3}",
                 st.krark_bodies(self.reg),
                 st.trigger_doublers(self.reg),
                 st.flips_per_cast(self.reg),
-                st.blue_devotion(self.reg),
                 last_pwin
             );
             let breach = self.hand.iter().any(|c| c == "Underworld Breach")
@@ -2303,7 +2402,7 @@ impl<'a> SimGame<'a> {
             .collect();
         let lib: HashSet<&str> = self.library.iter().map(|s| s.as_str()).collect();
         let cats: [(&str, &[&str]); 4] = [
-            ("PAYOFFS", &["Thassa's Oracle", "Grapeshot", "Brain Freeze"]),
+            ("PAYOFFS", &["Grapeshot", "Brain Freeze"]),
             ("COMBO", &["Twinflame", "Molten Duplication", "Dualcaster Mage"]),
             ("MANA-ENG", &[
                 "Storm-Kiln Artist", "Archmage Emeritus", "Birgi, God of Storytelling",
@@ -2355,6 +2454,16 @@ pub struct GameResult {
     pub turn: i64,
     pub wincon: String,
     pub engine: String,
+    // Sakashima-deploy probe (option-a lever sizing): the game reached a non-winning develop turn
+    // where the namesake krark-shimmer line was structurally available (Krark out, a shimmer
+    // accessible, a renewable-mana engine live) but Sakashima was still in the command zone — i.e.
+    // a state where deploying Sakashima mid-go-off could have enabled a combat kill the model can't see.
+    pub sak_opp: bool,
+    pub sak_opp_turn: i64,
+    // T3-both-commanders probe: did Krark + Sakashima both reach the board by turn 3, and what was
+    // the post-mulligan opening hand (for card-lift analysis under `--t3-probe`).
+    pub t3_both: bool,
+    pub opening: Vec<String>,
 }
 
 /// Source-utilization audit (opt-in via `enable_audit`). Collected only over NON-winning
@@ -2401,8 +2510,7 @@ impl AuditStats {
     }
 }
 
-/// Bucket a winning Line's detail into a win-condition category. (Thassa's Oracle is cut from the
-/// deck — DECK_EXCLUDE — so there is no Oracle bucket; its win path never fires.)
+/// Bucket a winning Line's detail into a win-condition category.
 pub fn classify_wincon(detail: &str) -> &'static str {
     let d = detail;
     // The Dualcaster+shimmer combo: deterministic kills read "... hasty attackers" / name the pieces;
@@ -2481,8 +2589,13 @@ pub fn play_quiet_luck(
     let mut prob = ProbabilisticPlanner { mc_sims: 80, max_first: 2, rollout_steps: rollout_steps(), ..Default::default() };
     let mut won = false;
     let mut detail = String::new();
+    let mut t3_both = false;
     for _ in 0..max_turns {
-        if let Some(line) = game.play_turn(&det, &mut prob) {
+        let line = game.play_turn(&det, &mut prob);
+        if game.turn <= 3 && game.both_commanders_out() {
+            t3_both = true;
+        }
+        if let Some(line) = line {
             won = true;
             detail = line.detail.clone();
             break;
@@ -2496,5 +2609,16 @@ pub fn play_quiet_luck(
     } else {
         (String::new(), String::new())
     };
-    GameResult { seed, luck, won, turn: if won { game.turn } else { 0 }, wincon, engine }
+    GameResult {
+        seed,
+        luck,
+        won,
+        turn: if won { game.turn } else { 0 },
+        wincon,
+        engine,
+        sak_opp: game.sak_opp,
+        sak_opp_turn: game.sak_opp_turn,
+        t3_both,
+        opening: game.opening_hand().to_vec(),
+    }
 }

@@ -232,10 +232,8 @@ fn is_source(reg: &Registry, name: &str) -> bool {
 pub fn discard_rank(state: &GameState, reg: &Registry, card: &str) -> f64 {
     // Win-cons / combo pieces rank above everything, but ORDERED (not a flat INFINITY) so a FORCED
     // discard (Frantic Search etc. when the hand is all keepers) sheds the least-critical protected
-    // card -- a redundant combo piece -- and NEVER the singleton Thassa's Oracle we're digging to.
-    // (The dig used to pitch its own Oracle into the graveyard and then deck out -> brick.)
+    // card -- a redundant combo piece -- and NEVER a storm finisher we're digging to.
     let protect = match card {
-        "Thassa's Oracle" => 1e9,
         "Grapeshot" | "Brain Freeze" => 1e8,
         "Underworld Breach" => 5e7,
         "Dualcaster Mage" | "Twinflame" | "Molten Duplication" | "Gale, Waterdeep Prodigy" => 1e7,
@@ -275,8 +273,8 @@ pub fn is_finisher(card: &str) -> bool {
 
 pub fn pitch_worst(state: &mut GameState, reg: &Registry, k: i64) {
     // Mirror of SimGame::discard_to_hand_size (the end-of-turn discard) and mulligan bottoming: shed
-    // the worst card by discard_rank, one at a time. discard_rank keeps win-cons/combo pieces on top
-    // (Oracle highest), so a forced discard never throws the payoff while any lesser card exists.
+    // the worst card by discard_rank, one at a time. discard_rank keeps win-cons/combo pieces on top,
+    // so a forced discard never throws the payoff while any lesser card exists.
     // (No filter/fallback: the old fallback pitched a protected card once the hand was all keepers.)
     // With a Krark body on board (storm engine live) NEVER pitch a finisher — keep fewer cards than
     // strand the kill (the all-keepers FS loop used to pitch Grapeshot/Brain Freeze and deck out).
@@ -349,7 +347,7 @@ pub fn quasi_target(state: &GameState, reg: &Registry) -> Option<String> {
         return None;
     }
     let on_bf: Vec<&str> = state.battlefield.iter().map(|p| p.effective_name()).collect();
-    let payoff_acc = ["Grapeshot", "Thassa's Oracle", "Brain Freeze"].iter().any(|pf| {
+    let payoff_acc = ["Grapeshot", "Brain Freeze"].iter().any(|pf| {
         state.hand.iter().any(|c| c == pf)
             || state.graveyard.iter().any(|c| c == pf)
             || state.has_permanent(pf)
@@ -377,7 +375,7 @@ pub fn shimmer_target(state: &GameState, reg: &Registry) -> Option<String> {
         return None;
     }
     let on_bf: Vec<&str> = state.battlefield.iter().map(|p| p.effective_name()).collect();
-    let payoff_acc = ["Grapeshot", "Thassa's Oracle", "Brain Freeze"].iter().any(|pf| {
+    let payoff_acc = ["Grapeshot", "Brain Freeze"].iter().any(|pf| {
         state.hand.iter().any(|c| c == pf)
             || state.graveyard.iter().any(|c| c == pf)
             || state.has_permanent(pf)
@@ -782,7 +780,6 @@ fn run_effect<R: Rng + ?Sized>(
             }
             true
         }
-        "Thassa's Oracle" => true, // creature ETB; win decided by predicate
         "Quasiduplicate" => {
             for _ in 0..n {
                 let tgt = match quasi_target(state, reg) {
@@ -1084,7 +1081,7 @@ pub fn selftest(reg: &Registry) {
         println!("[ok] Grapeshot (storm 9, no Krark) deals 10 -> kills 3x3 table: {:?}", g2.opponent_life);
     }
 
-    // ---- Brain Freeze self-mill feeds Thoracle ----
+    // ---- Brain Freeze self-mill (fuels the Underworld Breach graveyard line) ----
     {
         let mut bf = GameState {
             storm_count: 5,
@@ -1092,18 +1089,11 @@ pub fn selftest(reg: &Registry) {
             hand: vec!["Brain Freeze".to_string()],
             ..Default::default()
         };
-        bf.battlefield = vec![Permanent { summoning_sick: false, ..Permanent::new("Thassa's Oracle") }];
         let before = bf.library.len();
         let ch = Choices { target: Some("self".to_string()) };
         resolve_cast_sample(&mut bf, reg, "Brain Freeze", &mut rng, &ch, None);
-        let dev = bf.blue_devotion(reg);
-        println!(
-            "[ok] Brain Freeze self-mill: library {} -> {}; devotion {} -> Thoracle {}",
-            before,
-            bf.library.len(),
-            dev,
-            if bf.library.len() as i64 <= dev { "LETHAL" } else { "pending" }
-        );
+        assert!(bf.library.len() < before, "self-mill should shrink the library");
+        println!("[ok] Brain Freeze self-mill: library {} -> {}", before, bf.library.len());
     }
 
     // ---- INVARIANT: copies are not cast, so storm stays 1 ----

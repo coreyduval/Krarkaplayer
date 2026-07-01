@@ -6,7 +6,7 @@ use crate::game_state::GameState;
 #[derive(Debug, Clone, Default)]
 pub struct WinResult {
     pub won: bool,
-    pub wtype: String, // "thoracle" | "grapeshot" | "brain_freeze_mill" | "combat" | "LOSS" | ""
+    pub wtype: String, // "grapeshot" | "brain_freeze_mill" | "combat" | "LOSS" | ""
     pub detail: String,
 }
 
@@ -26,7 +26,6 @@ impl WinResult {
 /// Call when `resolving` (a card name) finishes resolving, after its effect is applied.
 pub fn check_resolution_win(state: &GameState, reg: &Registry, resolving: &str) -> WinResult {
     match resolving {
-        "Thassa's Oracle" => thoracle(state, reg),
         "Grapeshot" => {
             let total_damage = state.storm_count + 1;
             burn_lethal(state, total_damage, "Grapeshot")
@@ -36,27 +35,6 @@ pub fn check_resolution_win(state: &GameState, reg: &Registry, resolving: &str) 
             mill_table(state, mill_each, "Brain Freeze")
         }
         _ => WinResult::no(),
-    }
-}
-
-fn thoracle(state: &GameState, reg: &Registry) -> WinResult {
-    let dev = state.blue_devotion(reg);
-    let lib = state.library.len() as i64;
-    if lib <= dev {
-        WinResult::new(
-            true,
-            "thoracle",
-            format!("Thassa's Oracle resolves: blue devotion {dev} >= library {lib}."),
-        )
-    } else {
-        WinResult::new(
-            false,
-            "thoracle",
-            format!(
-                "NOT lethal: library {lib} > devotion {dev}. Need {} more mill/draw before Thoracle is safe.",
-                lib - dev
-            ),
-        )
     }
 }
 
@@ -110,23 +88,11 @@ pub fn check_state_win(state: &GameState, reg: &Registry) -> WinResult {
         return WinResult::new(true, "brain_freeze_mill", "Brain Freeze accessible with an infinite storm/blue-mana loop.".into());
     }
 
-    if payoff_accessible(state, reg, "Thassa's Oracle") {
-        let draw_or_mill = inf.contains("draw") || inf.contains("mill");
-        if draw_or_mill || (state.library.len() as i64) <= state.blue_devotion(reg) {
-            return WinResult::new(
-                true,
-                "thoracle",
-                "Thassa's Oracle castable and library empties (draw/mill loop) or is already <= devotion.".into(),
-            );
-        }
-    }
-
     WinResult::no()
 }
 
 const GRAPESHOT_LOOPS: &[&str] = &["mana_R", "mana_any", "storm"];
 const BRAINFREEZE_LOOPS: &[&str] = &["storm", "mana_U", "mana_any"];
-const THORACLE_LOOPS: &[&str] = &["mana_R", "mana_U", "mana_any", "storm", "draw", "mill"];
 
 fn inf_intersects(state: &GameState, tags: &[&str]) -> bool {
     tags.iter().any(|t| state.infinite.contains(*t))
@@ -157,9 +123,6 @@ pub fn payoff_accessible(state: &GameState, reg: &Registry, name: &str) -> bool 
     match name {
         "Grapeshot" => (in_hand || in_gy || in_exile) && inf_intersects(state, GRAPESHOT_LOOPS),
         "Brain Freeze" => (in_hand || in_gy || in_exile) && inf_intersects(state, BRAINFREEZE_LOOPS),
-        "Thassa's Oracle" => {
-            (in_hand || in_exile || on_bf || yard) && inf_intersects(state, THORACLE_LOOPS)
-        }
         _ => on_bf || in_hand || in_exile || yard,
     }
 }
@@ -188,9 +151,10 @@ pub fn evaluate_win(state: &GameState, reg: &Registry, resolving: Option<&str>) 
     check_state_win(state, reg)
 }
 
-pub fn check_loss(state: &GameState, reg: &Registry) -> WinResult {
-    if state.library.is_empty() && !payoff_accessible(state, reg, "Thassa's Oracle") {
-        return WinResult::new(true, "LOSS", "Library empty with no Thassa's Oracle to cash out.".into());
+pub fn check_loss(state: &GameState, _reg: &Registry) -> WinResult {
+    // Deck-out: drawing from an empty library loses the game.
+    if state.library.is_empty() {
+        return WinResult::new(true, "LOSS", "Library empty — deck-out loss on the next draw.".into());
     }
     WinResult::no()
 }
@@ -217,30 +181,6 @@ pub fn selftest(reg: &Registry) {
         assert_eq!(s.trigger_doublers(reg), 2);
         assert_eq!(s.flips_per_cast(reg), 3);
         println!("[ok] win: 1 body + Veyran + Harmonic -> {} flips (expect 3)", s.flips_per_cast(reg));
-    }
-
-    // Thoracle empty library wins
-    {
-        let s = GameState {
-            library: vec![],
-            battlefield: vec![Permanent { summoning_sick: false, ..Permanent::new("Thassa's Oracle") }],
-            ..Default::default()
-        };
-        let r = check_resolution_win(&s, reg, "Thassa's Oracle");
-        assert!(r.won, "{:?}", r);
-        println!("[ok] win: Thoracle, empty library, devotion {} -> WIN", s.blue_devotion(reg));
-    }
-
-    // Thoracle library 5 > devotion 2 -> not lethal
-    {
-        let s = GameState {
-            library: vec!["Island".into(); 5],
-            battlefield: vec![Permanent { summoning_sick: false, ..Permanent::new("Thassa's Oracle") }],
-            ..Default::default()
-        };
-        let r = check_resolution_win(&s, reg, "Thassa's Oracle");
-        assert!(!r.won, "{:?}", r);
-        println!("[ok] win: Thoracle, library 5 > devotion 2 -> NOT lethal");
     }
 
     // infinite storm with no payoff -> not a win
@@ -277,7 +217,7 @@ pub fn selftest(reg: &Registry) {
         let s = GameState { library: vec![], ..Default::default() };
         let r = check_loss(&s, reg);
         assert!(r.won, "{:?}", r);
-        println!("[ok] win: empty library, no Thoracle -> LOSS flagged");
+        println!("[ok] win: empty library -> deck-out LOSS flagged");
     }
 
     println!("Win-predicate selftest passed.");

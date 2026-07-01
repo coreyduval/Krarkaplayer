@@ -120,18 +120,6 @@ fn flip_math() {
 }
 
 #[test]
-fn blue_devotion_uses_function() {
-    let r = reg();
-    let mut s = GameState::default();
-    // Sakashima copying Krark contributes Krark's pips (0 blue), not {3}{U}
-    s.battlefield.push(krark_body("Sakashima of a Thousand Faces", Some("Krark, the Thumbless"), false));
-    assert_eq!(s.blue_devotion(&r), 0);
-    // bare Thassa's Oracle is {U}{U} -> 2 devotion
-    s.battlefield.push(Permanent::new("Thassa's Oracle"));
-    assert_eq!(s.blue_devotion(&r), 2);
-}
-
-#[test]
 fn analyze_grapeshot_storm() {
     let r = reg();
     let mut g = GameState {

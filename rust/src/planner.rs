@@ -961,7 +961,7 @@ pub fn selftest(reg: &Registry) {
     {
         let mut s = GameState {
             library: vec!["Island".into(); 40],
-            hand: vec!["Jeska's Will".into(), "Thassa's Oracle".into(), "Grapeshot".into()],
+            hand: vec!["Jeska's Will".into(), "Grapeshot".into()],
             battlefield: vec![
                 krark_body("Krark, the Thumbless", None, false),
                 krark_body("Sakashima of a Thousand Faces", Some("Krark, the Thumbless"), false),

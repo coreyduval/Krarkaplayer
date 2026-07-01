@@ -194,7 +194,7 @@ impl Opponent for StdinOpponent {
 /// with no prompt.
 const WORTH_COUNTERING: &[&str] = &[
     // payoffs
-    "Grapeshot", "Brain Freeze", "Thassa's Oracle",
+    "Grapeshot", "Brain Freeze",
     // combo enablers
     "Dualcaster Mage", "Twinflame", "Molten Duplication", "Underworld Breach",
     // value engines

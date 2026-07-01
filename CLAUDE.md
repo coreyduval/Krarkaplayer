@@ -40,16 +40,18 @@ Binary: `rust/target/release/krarksim(.exe)`.
 ## Metric framing (speed-first)
 cEDH games are decided early, so the default `--max-turns 12` caps compute at turn 12 and the
 deck is judged on **speed**, not just eventual win%:
-- **EARLY-WIN SCORE** — geometric, weights T2–8, earlier = better (~1.74 baseline). Primary lever.
-- **win-by-T12** (~98%) and **TTK** (non-wins penalized at turn 15, ~6.2). Past T12 is ~worthless.
+- **EARLY-WIN SCORE** — geometric, weights T2–8, earlier = better (~1.82 baseline). Primary lever.
+- **win-by-T12** (~98.5%) and **TTK** (non-wins penalized at turn 15, ~6.1). Past T12 is ~worthless.
 
 ## Sweep flags (defaults in parens)
 `--games N` (30) · `--flip-trials N` (10) · `--seed N` (0) · `--max-turns N` (12) ·
 `--win-threshold F` (0.95) · `--send-gate F` (0.20, commit gate when a fizzle isn't fatal) ·
 `--cut "Card"` / `--add "Card"` (both repeatable; LOO + bench swaps) ·
-`--keep-gate fast|mana|none` (**fast**) · `--keep-min-lands N` (2) · `--mull-depth N` (2) ·
+`--keep-gate fast|mana|none` (**fast**) · `--keep-min-lands N` (2, now min mana SOURCES) · `--mull-depth N` (2) ·
+`--no-keep-rock-sources` (keep on 2 sources incl. permanent rocks is **on**) ·
 `--no-fast-mull` · `--no-dead-hand-mull` (dead-hand override is **on**) · `--no-smart-land` ·
-`--no-aggro-cantrips` · `--no-jeska-boost` · `--ritual-prelude` (off; experimental) ·
+`--no-aggro-cantrips` · `--no-jeska-boost` · `--no-sak-deploy` (Sakashima mid-go-off deploy is **on**) ·
+`--ritual-prelude` (off; experimental) ·
 `--dev-cap N` (12) · `--rollout-steps N` (20). `audit` shares most flags (games default 300).
 
 ## Sample size & timing
@@ -101,9 +103,12 @@ off / idle; factor that into ETAs and **state an ETA up front for any long run**
 - Seat randomization: 0.75 on the draw (extra T1 draw), seeded per game.
 - **Mulligan default `gate=fast`** (mulligan-for-speed: first keep needs explosive mana / an
   engine / a combo piece; validated −0.09 turns free). `--no-fast-mull` reverts to `none`.
-  **Dead-hand override** (default on; `--no-dead-hand-mull`): at the mulligan floor, don't
-  force-keep a hand with no land AND no land-independent mana (Lotus Petal / Chrome Mox / LED /
-  Simian) — it can't make turn-1 mana — mulligan deeper (up to depth+2) instead.
+  **Keep on 2 mana SOURCES** (default on; `--no-keep-rock-sources`): a keepable hand needs ≥1 real
+  land plus 2 total sources, where reliable permanent rocks (Sol Ring / Arcane Signet / Chrome Mox /
+  Talisman / Mana Vault / Grim Monolith) count as the 2nd — NOT one-shots (Lotus Petal / Simian),
+  the land-eater Mox Diamond, or creature/legend-gated rocks (Springleaf / Mox Amber). The floor
+  then mulligans a sub-2-source hand deeper instead of force-keeping a 1-lander (+0.055 early-win /
+  +0.3% win-by-T12 at 1200×8). `--no-dead-hand-mull` reverts the floor to the old zero-mana check.
 - Manabase: fetchland package (Steam Vents + 3 fetches; grab Vents, thin the library, shock in
   untapped), color-aware land sequencing (`SMART_LAND`, default on). Scry/surveil modeled
   (Opt/Consider/Serum/Preordain/Ponder). Cantrips cast aggressively for flow (`AGGRO_CANTRIPS`).
@@ -116,6 +121,6 @@ off / idle; factor that into ETAs and **state an ETA up front for any long run**
 ## Conventions
 - Verify every change: build + `selftest` + a representative `sweep`; report regressions
   honestly, including the numbers.
-- For risky engine changes, A/B sweep at 1200×8 vs the baseline (~98% win-by-T12 / early-win
-  ~1.74 / TTK ~6.2). Optimize the **early-win score**; guard win-by-T12 ≥ ~95%.
+- For risky engine changes, A/B sweep at 1200×8 vs the baseline (~98.5% win-by-T12 / early-win
+  ~1.82 / TTK ~6.1). Optimize the **early-win score**; guard win-by-T12 ≥ ~95%.
 - Keep changes surgical; match surrounding Rust style.
