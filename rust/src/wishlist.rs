@@ -53,6 +53,7 @@ const ENGINE_EXTRA: &[&str] = &[
     "Gamble", "Pyretic Ritual", "Desperate Ritual", "Strike It Rich",
     "Gitaxian Probe", "Peek", "Borne Upon a Wind", "Rite of Flame",
     "Opt", "Consider", "Serum Visions", "Preordain",
+    "Muddle the Mixture", "Merchant Scroll", "Personal Tutor",
 ];
 
 pub fn is_body(name: &str) -> bool {
@@ -209,11 +210,21 @@ pub fn card_value(s: &GameState, reg: &Registry, name: &str, for_tutor: bool) ->
     // "if and only if there is a way to draw the card"). Value it at the seated payoff's worth,
     // discounted for the extra draw + cast it still costs. Without a draw outlet it scores ~0 and the
     // pilot won't grab it (e.g. Spellseeker correctly prefers immediate mana then).
-    if name == "Mystical Tutor" && s.hand.iter().any(|c| DRAW_OUTLETS.contains(&c.as_str())) {
+    if (name == "Mystical Tutor" || name == "Personal Tutor")
+        && s.hand.iter().any(|c| DRAW_OUTLETS.contains(&c.as_str()))
+    {
+        // Personal Tutor seats sorceries only (Jeska's Will is the marquee); Mystical any I/S.
         let best_seat = s
             .library
             .iter()
-            .filter(|c| c.as_str() != "Mystical Tutor" && reg.get(c).is_instant_or_sorcery())
+            .filter(|c| c.as_str() != name)
+            .filter(|c| {
+                if name == "Personal Tutor" {
+                    reg.get(c).types.contains(&crate::cards::CardType::Sorcery)
+                } else {
+                    reg.get(c).is_instant_or_sorcery()
+                }
+            })
             .map(|c| card_value(s, reg, c, true))
             .fold(0.0f64, f64::max);
         score += best_seat * 0.6;

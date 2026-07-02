@@ -741,6 +741,47 @@ fn run_effect<R: Rng + ?Sized>(
             }
             true
         }
+        "Muddle the Mixture" => {
+            // Transmute (the only modeled mode): search for the best mana-value-2 card into hand —
+            // Grapeshot / Brain Freeze / Twinflame / Molten Duplication / Krark's Thumb / Tavern
+            // Scoundrel / Harmonic Prodigy all live here. n is irrelevant: transmute is an ability
+            // (never copied by Krark; the resolve_cast_sample early path guarantees no flips fired).
+            wishlist::tutor(state, reg, |c| reg.get(c).mana_value == 2);
+            true
+        }
+        "Merchant Scroll" => {
+            // Search for the best BLUE INSTANT into hand (Brain Freeze / Frantic Search / Borne
+            // Upon a Wind / counters). A real sorcery cast — Krark copies fetch again (n times).
+            for _ in 0..n {
+                if wishlist::tutor(state, reg, |c| {
+                    let cd = reg.get(c);
+                    cd.types.contains(&CardType::Instant) && cd.blue_pips() >= 1
+                })
+                .is_none()
+                {
+                    break;
+                }
+            }
+            true
+        }
+        "Personal Tutor" => {
+            // Search for the best SORCERY and put it on TOP (NOT into hand) — Jeska's Will is the
+            // marquee seat. Same non-stacking rule as Mystical Tutor: each resolution re-seats the
+            // single best sorcery, so n is irrelevant.
+            let cands: Vec<String> = state
+                .library
+                .iter()
+                .filter(|c| reg.get(c).types.contains(&CardType::Sorcery))
+                .cloned()
+                .collect();
+            if let Some(best) = wishlist::best(state, reg, &cands, 1, true).first().cloned() {
+                if let Some(pos) = state.library.iter().position(|c| *c == best) {
+                    let card = state.library.remove(pos);
+                    state.library.insert(0, card);
+                }
+            }
+            true
+        }
         "Step Through" => {
             // Wizardcycling: fetch the best library Wizard to hand. Krark is the commander, so it
             // is never in the library and can't be found. (Modeled as a {2} Wizard tutor; note the
@@ -887,10 +928,10 @@ pub fn resolve_cast_sample<R: Rng + ?Sized>(
     choices: &Choices,
     forced_wins: Option<i64>,
 ) -> ResolveLog {
-    // Step Through is used via Wizardcycling — an ACTIVATED ABILITY, not a spell cast. It must not
-    // flip Krark, trigger magecraft, or add to storm. Just discard it (the caller does that) and
-    // tutor a Wizard.
-    if card_name == "Step Through" {
+    // Step Through is used via Wizardcycling and Muddle the Mixture via transmute — ACTIVATED
+    // ABILITIES, not spell casts. They must not flip Krark, trigger magecraft, or add to storm.
+    // Just discard the card (the caller does that) and run the tutor.
+    if card_name == "Step Through" || card_name == "Muddle the Mixture" {
         run_effect(state, reg, card_name, 1, choices, rng);
         return ResolveLog {
             flips: 0,

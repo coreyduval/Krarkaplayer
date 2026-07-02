@@ -213,6 +213,7 @@ const SORCERIES: &[&str] = &[
     "Twinflame", "Strike It Rich", "Gitaxian Probe", "Rite of Flame", "Molten Duplication",
     "Serum Visions", "Preordain", "Overmaster", "Heroes' Hangout", "Step Through",
     "Renegade Tactics", "Heat Shimmer", "Heat Shimmer II",
+    "Merchant Scroll", "Personal Tutor",
 ];
 const INSTANTS: &[&str] = &[
     "Brainstorm", "Cyclonic Rift", "Brain Freeze", "Frantic Search", "Snap",
@@ -221,7 +222,7 @@ const INSTANTS: &[&str] = &[
     "An Offer You Can't Refuse", "Borne Upon a Wind", "Mogg Salvage", "Peek",
     "Opt", "Consider", "Expedite", "Might of the Meek", "Brightstone Ritual",
     "Crimson Wisps", "Accelerate",
-    "Mystical Tutor", "Flare of Duplication",
+    "Mystical Tutor", "Flare of Duplication", "Muddle the Mixture",
 ];
 const ENCHANTMENTS: &[&str] = &["Underworld Breach", "Mystic Remora", "Rhystic Study"];
 const ARTIFACTS: &[&str] = &[

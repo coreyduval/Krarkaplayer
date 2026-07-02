@@ -45,7 +45,7 @@ fn build_deck(reg: &Registry, islands: u32, mountains: u32) -> Vec<String> {
     // not in the default list.
     // Extra fetches (Misty Rainforest..Flooded Strand) kept in the registry for --add A/B testing of
     // higher fetch counts; not in the default 3-fetch deck.
-    const DECK_EXCLUDE: [&str; 17] = [
+    const DECK_EXCLUDE: [&str; 20] = [
         "Crimson Wisps", "Renegade Tactics", "Accelerate",
         "Misty Rainforest", "Arid Mesa", "Wooded Foothills", "Flooded Strand",
         "The One Ring", "Electro, Assaulting Battery", "Grim Monolith",
@@ -58,6 +58,8 @@ fn build_deck(reg: &Registry, islands: u32, mountains: u32) -> Vec<String> {
         "Heat Shimmer II",
         // Bench test cards (--add): DRC = {R} surveil body; Flesh Duplicate = Krark-copy clone.
         "Dragon's Rage Channeler", "Flesh Duplicate",
+        // Bench tutors (audit 2026-07-01: payoff-buried idle boards want tutor density).
+        "Muddle the Mixture", "Merchant Scroll", "Personal Tutor",
     ];
     let mut deck: Vec<String> = reg
         .ordered_names()
@@ -776,7 +778,18 @@ fn main() {
             let seed: u64 = arg_val(&args, "--seed").and_then(|v| v.parse().ok()).unwrap_or(0);
             let luck: u64 = arg_val(&args, "--luck").and_then(|v| v.parse().ok()).unwrap_or(0);
             let max_turns: i64 = arg_val(&args, "--max-turns").and_then(|v| v.parse().ok()).unwrap_or(12);
-            let deck = build_deck(&reg, 6, 8);
+            let mut deck = build_deck(&reg, 6, 8);
+            // Mirror sweep's --cut/--add so a bench-card game can be inspected verbosely.
+            for c in arg_vals(&args, "--cut") {
+                if let Some(pos) = deck.iter().position(|x| *x == c) {
+                    deck.remove(pos);
+                }
+            }
+            for a in arg_vals(&args, "--add") {
+                if reg.ordered_names().iter().any(|n| *n == a) {
+                    deck.push(a);
+                }
+            }
             let fast_mull = !args.iter().any(|a| a == "--no-fast-mull");
             let mut game = sim::SimGame::new(&reg, &deck, seed, 0.95, fast_mull);
             game.set_dev_seed(seed.wrapping_mul(1_000_003).wrapping_add(luck));
