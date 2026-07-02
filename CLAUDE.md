@@ -40,8 +40,8 @@ Binary: `rust/target/release/krarksim(.exe)`.
 ## Metric framing (speed-first)
 cEDH games are decided early, so the default `--max-turns 12` caps compute at turn 12 and the
 deck is judged on **speed**, not just eventual win%:
-- **EARLY-WIN SCORE** — geometric, weights T2–8, earlier = better (~1.82 baseline). Primary lever.
-- **win-by-T12** (~98.5%) and **TTK** (non-wins penalized at turn 15, ~6.1). Past T12 is ~worthless.
+- **EARLY-WIN SCORE** — geometric, weights T2–8, earlier = better (~1.94 baseline). Primary lever.
+- **win-by-T12** (~98%) and **TTK** (non-wins penalized at turn 15, ~6.0). Past T12 is ~worthless.
 
 ## Sweep flags (defaults in parens)
 `--games N` (30) · `--flip-trials N` (10) · `--seed N` (0) · `--max-turns N` (12) ·
@@ -88,12 +88,13 @@ off / idle; factor that into ETAs and **state an ETA up front for any long run**
   so any new land must be added there or it sits dead in hand.
 - Bench cards already wired for `--add` A/B: Crimson Wisps / Renegade Tactics / Accelerate (red
   cantrips), extra fetches, The One Ring, Electro Assaulting Battery (Birgi-clone), Grim Monolith,
-  **Heat Shimmer / Heat Shimmer II** ({2}{R} shimmers — see the +2-shimmer result below; all shimmer
-  recognition routes through `cards::SHIMMERS`, so adding a shimmer is a registry+cards.rs one-liner).
+  Heat Shimmer II (fake 2nd {2}{R} shimmer test card), Dragon's Rage Channeler (surveil modeled),
+  Flesh Duplicate (Krark-copy clone), Muddle the Mixture (transmute-only) / Merchant Scroll /
+  Personal Tutor (bench tutors — all A/B'd as WASHES; tutor density isn't binding). All shimmer
+  recognition routes through `cards::SHIMMERS`, so adding a shimmer is a registry+cards.rs one-liner.
 - **`--t3-probe`** (sweep): per-opening-card lift for hitting Krark+Sakashima by T3. **`--t3-mull`**
   (default OFF): a T3-Krarkashima mull seek — A/B-raised the T3-both rate +3.6pts but hurt wins, so it's
-  parked. **Open experiment:** +2 {2}{R} shimmers (−Opt −Might of the Meek) = **+0.099 early-win**
-  (1.82→1.92) at flat win-rate — the session's biggest lever, not yet shipped (needs a real 2nd shimmer).
+  parked. The +1-shimmer experiment SHIPPED 2026-07-01: real Heat Shimmer ({2}{R}) is maindeck (−Opt).
 
 ## Model assumptions — already implemented, do not regress
 - Goldfish, no interaction. Counters (FoW / Pact / Fierce Guardianship / Flusterstorm /
@@ -127,6 +128,6 @@ off / idle; factor that into ETAs and **state an ETA up front for any long run**
 ## Conventions
 - Verify every change: build + `selftest` + a representative `sweep`; report regressions
   honestly, including the numbers.
-- For risky engine changes, A/B sweep at 1200×8 vs the baseline (~98.5% win-by-T12 / early-win
-  ~1.82 / TTK ~6.1). Optimize the **early-win score**; guard win-by-T12 ≥ ~95%.
+- For risky engine changes, A/B sweep at 1200×8 vs the baseline (~98% win-by-T12 / early-win
+  ~1.94 / TTK ~6.0). Optimize the **early-win score**; guard win-by-T12 ≥ ~95%.
 - Keep changes surgical; match surrounding Rust style.
