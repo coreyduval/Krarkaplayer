@@ -390,14 +390,15 @@ fn krark_shimmer_lethal(s: &GameState, reg: &Registry) -> bool {
         return false;
     }
     // Reliability gate (not a piece requirement): the loop hinges on steering each cast to a 1-loss/
-    // rest-win split. Krark's Thumb makes that near-certain; without it, >=3 Krarks already keeps each
-    // cast >=75% to continue and the split self-corrects as the army grows — so treat it as lethal at
-    // Thumb OR >=3 bodies, and leave the 2-body no-Thumb case to the probabilistic rollout.
+    // rest-win split. Krark's Thumb makes that near-certain; without it, >=3 FLIPS per cast already
+    // keeps each cast >=87% to continue and the split self-corrects as the army grows — so treat it as
+    // lethal at Thumb OR >=3 flips. Flips (bodies × (1+doublers)), not raw bodies: 2 bodies + Roaming
+    // Throne = 4 flips is strictly more reliable than 3 bodies bare (audit 2026-07-01, seed 428).
     // Deployable path: accept >=1 body — with Sakashima + renewable mana the hasty-Krark army grows
     // ~E[wins]/cast in expectation and self-corrects, and a goldfish turn has no disruption, so even a
     // slow-growing army reaches lethal. This only fires once the (real) mana check below passes.
     let bodies_ok = if on_board {
-        s.has_krarks_thumb() || s.krark_bodies(reg) >= 3
+        s.has_krarks_thumb() || s.flips_per_cast(reg) >= 3
     } else {
         s.krark_bodies(reg) >= 1
     };
@@ -450,11 +451,8 @@ fn krark_shimmer_lethal(s: &GameState, reg: &Registry) -> bool {
             sustain = castable_now(s, reg, "Jeska's Will") || can_escape(s, reg, "Lion's Eye Diamond");
         }
     }
-    if !sustain {
-        return false;
-    }
-    // The shimmer must be castable from hand / Jeska-exile (or, on the deployable path, escapable via
-    // Breach), and the pool must cover the first shimmer cast PLUS the one-time Sakashima {3}{U} deploy.
+    // Shimmer access + the one-time Sakashima deploy cost, shared by the finite-mana pump below and
+    // the final castability check.
     let sak_cost: crate::cards::ManaCost = if deployable {
         s.cast_cost(reg, "Sakashima of a Thousand Faces").into_owned()
     } else {
@@ -465,6 +463,62 @@ fn krark_shimmer_lethal(s: &GameState, reg: &Registry) -> bool {
             || s.exiled_play.iter().any(|c| c == name)
             || (deployable && can_escape(s, reg, name))
     };
+    if !sustain {
+        // Finite-mana pump (audit 2026-07-01, seed 428): with NO renewable engine, a big-enough
+        // BANKED pool still goes lethal — each recast's flip wins are token KRARKS (bodies!), so
+        // flips scale with the army and it grows ~1.5-2x per cast. Casts are bounded by pool mana;
+        // simulate the discounted expected pump and book the kill only when the army's combat power
+        // clears the pod's combined life before the mana runs out, AND the loop is reliable (same
+        // menu as the deployable gate: cast-1 yard is the front-loaded risk).
+        let mc_total = |c: &crate::cards::ManaCost| -> i64 {
+            c.iter().filter(|(k, _)| k.as_str() != "X").map(|(_, v)| *v).sum()
+        };
+        let doub = 1 + s.trigger_doublers(reg);
+        let bodies0 = s.krark_bodies(reg) + if deployable { 1 } else { 0 };
+        let flips0 = bodies0 * doub;
+        let thumb = s.has_krarks_thumb();
+        let n_shimmers = crate::cards::SHIMMERS.iter().filter(|sh| access(sh)).count();
+        if !(thumb || flips0 >= 4 || s.has_permanent("Underworld Breach") || n_shimmers >= 2) {
+            return false;
+        }
+        // Cheapest accessible shimmer funds the recasts (each needs one R pip: cap casts by
+        // red-capable mana — R + wildcard + Treasures — minus one the deploy's generic may eat).
+        let recast = crate::cards::SHIMMERS
+            .iter()
+            .filter(|sh| access(sh))
+            .map(|sh| mc_total(s.cast_cost(reg, sh).as_ref()))
+            .min()
+            .unwrap_or(i64::MAX);
+        if recast == i64::MAX {
+            return false;
+        }
+        let pool = s.mana.total() - mc_total(&sak_cost);
+        let red_avail = s.mana.slots[3] + s.mana.slots[6] + s.mana.treasures
+            - if deployable { 1 } else { 0 };
+        let max_casts = (pool / recast.max(1)).min(red_avail).max(0);
+        // Expected pump, conservatively discounted: no Thumb -> 0.45 wins/flip (under the true 0.5);
+        // Thumb -> steer to exactly one loss (flips-1 wins). Token Krarks have power 1 and haste;
+        // lethal = the pod's combined remaining life.
+        let lethal = s.opponent_life.iter().sum::<i64>() as f64;
+        let mut bodies = bodies0 as f64;
+        let mut power = 0.0;
+        let mut dead = false;
+        for _ in 0..max_casts {
+            let flips = bodies * doub as f64;
+            let wins = if thumb { (flips - 1.0).max(0.0) } else { flips * 0.45 };
+            power += wins;
+            bodies += wins;
+            if power >= lethal {
+                dead = true;
+                break;
+            }
+        }
+        if !dead {
+            return false;
+        }
+    }
+    // The shimmer must be castable from hand / Jeska-exile (or, on the deployable path, escapable via
+    // Breach), and the pool must cover the first shimmer cast PLUS the one-time Sakashima {3}{U} deploy.
     crate::cards::SHIMMERS.iter().any(|sh| {
         access(sh) && s.mana.can_pay(&add_costs(&[&sak_cost, s.cast_cost(reg, sh).as_ref()]))
     })
@@ -1515,7 +1569,7 @@ pub fn detect_loops(state: &GameState, reg: &Registry) -> LoopReport {
             && state.mana.can_pay(&state.cast_cost(reg, sh))
     });
     if state.has_sakashima_break()
-        && (state.has_krarks_thumb() || state.krark_bodies(reg) >= 3)
+        && (state.has_krarks_thumb() || state.flips_per_cast(reg) >= 3)
         && kss_sustain
     {
         if let Some(sh) = kss_shimmer {

@@ -76,9 +76,11 @@ fn mana_rocks() -> &'static [&'static str] {
 /// a land to stay, so 1 land + Mox Diamond is still ~1 source, not additive); creature/legend-gated
 /// rocks (Springleaf needs a creature, Mox Amber a legendary in play). The T3-both probe ranks those
 /// three high only because the hands holding them ALSO carry extra lands — they don't rescue a 1-lander.
-const KEEP_MANA_ROCKS: &[&str] = &[
-    "Sol Ring", "Arcane Signet", "Chrome Mox", "Talisman of Creativity", "Mana Vault", "Grim Monolith",
-];
+/// Split by castability: a {0}/{1} rock is live off a single land, but a {2} rock in a 1-land hand
+/// is a TRAP — it can't be cast until a 2nd land shows up, so it only counts once the hand already
+/// has 2 castable sources (audit 2026-07-01: trap keeps were 3.8% of games, bricking 6-12 turns).
+const KEEP_ROCKS_CHEAP: &[&str] = &["Sol Ring", "Chrome Mox", "Mana Vault"];
+const KEEP_ROCKS_TWO: &[&str] = &["Arcane Signet", "Talisman of Creativity", "Grim Monolith"];
 
 fn lands_set() -> &'static [&'static str] {
     &[
@@ -189,7 +191,7 @@ fn t3_mull() -> bool {
     *T3_MULL.get().unwrap_or(&false)
 }
 /// Accelerants that make the 6-mana-by-T3 double-commander deploy realistic (>=2 mana, or a mox that
-/// nets a source): the marquee fast mana. Excludes Mox Diamond (source-neutral) — see KEEP_MANA_ROCKS.
+/// nets a source): the marquee fast mana. Excludes Mox Diamond (source-neutral) — see KEEP_ROCKS_CHEAP.
 const T3_ACCEL: &[&str] = &[
     "Sol Ring", "Mana Vault", "Grim Monolith", "Lion's Eye Diamond", "Ancient Tomb",
     "Rite of Flame", "Strike It Rich",
@@ -578,9 +580,18 @@ impl<'a> SimGame<'a> {
         hand.iter().filter(|c| self.reg.get(c).types.contains(&CardType::Land)).count()
     }
 
-    /// Reliable mana sources for the keep decision: lands + permanent KEEP_MANA_ROCKS.
+    /// Reliable mana sources for the keep decision: lands + castable permanent rocks. {2}-cost
+    /// rocks (Signet / Talisman / Grim Monolith) only count once the hand has 2 castable sources
+    /// already (lands or {0}/{1} rocks) — a 1-lander whose "2nd source" is an uncastable {2} rock
+    /// bricks until it topdecks a land, so those rocks don't rescue a thin hand.
     fn keep_sources(&self, hand: &[String]) -> usize {
-        self.lands(hand) + hand.iter().filter(|c| KEEP_MANA_ROCKS.contains(&c.as_str())).count()
+        let castable = self.lands(hand)
+            + hand.iter().filter(|c| KEEP_ROCKS_CHEAP.contains(&c.as_str())).count();
+        if castable >= 2 {
+            castable + hand.iter().filter(|c| KEEP_ROCKS_TWO.contains(&c.as_str())).count()
+        } else {
+            castable
+        }
     }
 
     fn keepable(&self, hand: &[String]) -> bool {
@@ -1782,6 +1793,60 @@ impl<'a> SimGame<'a> {
     }
 
     // ── develop ───────────────────────────────────────────────────────────
+    /// Flood relief: sac a Fiery Islet ({1}, sac: draw a card) to dig for ignition — its own tap
+    /// mana covers the activation (net ~0 mana, -1 land, +1 card). Only when there's NO win path to
+    /// fund (no payoff in hand, no Dualcaster+shimmer, not closing — the go-off wants that mana) and
+    /// genuinely FLOODED (>=3 lands, so cracking leaves a functional base), above the deck-out floor.
+    /// Returns true if it cracked (caller recomputes scores and continues the develop loop). Called
+    /// from EVERY develop-loop exit, not just the no-candidates one — a dead churn-spell or an
+    /// unaffordable candidate list used to break out before the crack was ever considered
+    /// (audit 2026-07-01: idle-board games never dug).
+    fn try_crack_islet(
+        &self,
+        state: &mut GameState,
+        closing: bool,
+        floor: i64,
+        orig_bf: &mut usize,
+        cracked_islets: &mut usize,
+    ) -> bool {
+        let payoff_in_hand = state
+            .hand
+            .iter()
+            .any(|c| matches!(c.as_str(), "Grapeshot" | "Brain Freeze"));
+        let dc = state.hand.iter().any(|c| c == "Dualcaster Mage")
+            || state.has_permanent("Dualcaster Mage");
+        let shim = state.hand.iter().any(|c| crate::cards::SHIMMERS.contains(&c.as_str()));
+        let win_path = closing || payoff_in_hand || (dc && shim);
+        let lands_in_play = state.battlefield.iter().filter(|p| is_land_name(&p.name)).count();
+        let can_crack = !win_path
+            && lands_in_play >= 3
+            && (state.library.len() as i64) > floor
+            && state.mana.total() >= 1
+            && state.battlefield.iter().any(|p| p.name == "Fiery Islet");
+        if !can_crack {
+            return false;
+        }
+        let i = state.battlefield.iter().position(|p| p.name == "Fiery Islet").unwrap();
+        state.battlefield.remove(i);
+        // The Islet is an ORIGINAL battlefield perm (played as a land before develop), so
+        // removing it shifts the [orig_bf..] deploy-commit slice — decrement orig_bf to keep
+        // it aligned, else a real engine permanent deployed this turn gets dropped on commit.
+        if i < *orig_bf {
+            *orig_bf -= 1;
+        }
+        *cracked_islets += 1;
+        let one: HashMap<String, i64> = HashMap::from([("generic".to_string(), 1)]);
+        state.mana.pay(&one);
+        if let Some(c) = state.library.first().cloned() {
+            state.library.remove(0);
+            state.hand.push(c.clone());
+            if self.verbose {
+                println!("    CRACK   : Fiery Islet sacrificed -> draw [{c}] (flood relief)");
+            }
+        }
+        true
+    }
+
     fn develop(&mut self, pool: &mut ManaPool) -> Vec<String> {
         let payoffs = DEV_PAYOFFS;
         let mut state = tap_out(&self.build_state(pool));
@@ -1909,50 +1974,9 @@ impl<'a> SimGame<'a> {
                 })
                 .collect();
             if cands.is_empty() {
-                // Flood relief: stuck with no castable spell (the lands-only brick). If a Fiery Islet
-                // is in play and we have {1}, crack it ({1}, sac: draw a card) to dig for ignition —
-                // its own tap mana covers the activation (net ~0 mana, -1 land, +1 card). Gated on the
-                // deck-out floor. The drawn card may be a castable spell, so recompute and continue.
-                // Smarter guard: only crack when there's NO win path to fund — no payoff in hand, no
-                // Dualcaster+Shimmer combo, and not already closing. Otherwise the go-off (try_win
-                // after develop) wants this mana, and saccing a source would fizzle the kill.
-                let payoff_in_hand = state
-                    .hand
-                    .iter()
-                    .any(|c| matches!(c.as_str(), "Grapeshot" | "Brain Freeze"));
-                let dc = state.hand.iter().any(|c| c == "Dualcaster Mage")
-                    || state.has_permanent("Dualcaster Mage");
-                let shim = state.hand.iter().any(|c| crate::cards::SHIMMERS.contains(&c.as_str()));
-                let win_path = closing || payoff_in_hand || (dc && shim);
-                // Only crack when genuinely FLOODED — a land surplus, not mana-screw. `cands.is_empty()`
-                // also fires when the hand is full of spells you simply can't afford yet (early/screwed);
-                // saccing your only/2nd land then is a blunder (it cripples development to draw one card).
-                // Require >=3 lands in play so cracking leaves a functional >=2-land base.
-                let lands_in_play = state.battlefield.iter().filter(|p| is_land_name(&p.name)).count();
-                let can_crack = !win_path
-                    && lands_in_play >= 3
-                    && (state.library.len() as i64) > floor
-                    && state.mana.total() >= 1
-                    && state.battlefield.iter().any(|p| p.name == "Fiery Islet");
-                if can_crack {
-                    let i = state.battlefield.iter().position(|p| p.name == "Fiery Islet").unwrap();
-                    state.battlefield.remove(i);
-                    // The Islet is an ORIGINAL battlefield perm (played as a land before develop), so
-                    // removing it shifts the [orig_bf..] deploy-commit slice — decrement orig_bf to keep
-                    // it aligned, else a real engine permanent deployed this turn gets dropped on commit.
-                    if i < orig_bf {
-                        orig_bf -= 1;
-                    }
-                    cracked_islets += 1;
-                    let one: HashMap<String, i64> = HashMap::from([("generic".to_string(), 1)]);
-                    state.mana.pay(&one);
-                    if let Some(c) = state.library.first().cloned() {
-                        state.library.remove(0);
-                        state.hand.push(c.clone());
-                        if self.verbose {
-                            println!("    CRACK   : Fiery Islet sacrificed -> draw [{c}] (flood relief)");
-                        }
-                    }
+                // Stuck with no castable spell (the lands-only brick) — try the Islet flood-relief
+                // dig; the drawn card may be a castable spell, so recompute and continue.
+                if self.try_crack_islet(&mut state, closing, floor, &mut orig_bf, &mut cracked_islets) {
                     recompute(&state, &mut scores, self.reg);
                     continue;
                 }
@@ -2019,7 +2043,16 @@ impl<'a> SimGame<'a> {
             }
             let (mut nstate, log) = match nxt {
                 Some(x) => x,
-                None => break,
+                None => {
+                    // Every candidate was unaffordable — this exit used to skip the Islet dig
+                    // entirely (the idle-board syndrome: a hand of uncastables + a live Islet
+                    // = turns of doing nothing). Try the crack; the draw may unstick us.
+                    if self.try_crack_islet(&mut state, closing, floor, &mut orig_bf, &mut cracked_islets) {
+                        recompute(&state, &mut scores, self.reg);
+                        continue;
+                    }
+                    break;
+                }
             };
             cast.push(chosen.clone());
             if self.verbose {
