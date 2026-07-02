@@ -52,7 +52,7 @@ deck is judged on **speed**, not just eventual win%:
 `--no-fast-mull` · `--no-dead-hand-mull` (dead-hand override is **on**) · `--no-smart-land` ·
 `--no-aggro-cantrips` · `--no-jeska-boost` · `--no-sak-deploy` (Sakashima mid-go-off deploy is **on**) ·
 `--ritual-prelude` (off; experimental) ·
-`--dev-cap N` (12) · `--rollout-steps N` (20). `audit` shares most flags (games default 300).
+`--dev-cap N` (20) · `--rollout-steps N` (40). `audit` shares most flags (games default 300).
 
 ## Sample size & timing
 A **converged** sweep is **1200 seeds × 8 flips** — heavy-tailed bricks make smaller samples

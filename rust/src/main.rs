@@ -677,8 +677,8 @@ fn main() {
         }
         "sweep" => {
             sim::MULL_CFG.set(parse_mull_cfg(&args)).ok();
-            sim::DEV_CAP.set(arg_val(&args, "--dev-cap").and_then(|v| v.parse().ok()).unwrap_or(12)).ok();
-            sim::ROLLOUT_STEPS.set(arg_val(&args, "--rollout-steps").and_then(|v| v.parse().ok()).unwrap_or(20)).ok();
+            sim::DEV_CAP.set(arg_val(&args, "--dev-cap").and_then(|v| v.parse().ok()).unwrap_or(20)).ok();
+            sim::ROLLOUT_STEPS.set(arg_val(&args, "--rollout-steps").and_then(|v| v.parse().ok()).unwrap_or(40)).ok();
             planner::RITUAL_PRELUDE.set(args.iter().any(|a| a == "--ritual-prelude")).ok();
             sim::DEAD_HAND_MULL.set(!args.iter().any(|a| a == "--no-dead-hand-mull")).ok();
             loops::AGGRO_CANTRIPS.set(!args.iter().any(|a| a == "--no-aggro-cantrips")).ok();
@@ -715,8 +715,8 @@ fn main() {
         }
         "audit" => {
             sim::MULL_CFG.set(parse_mull_cfg(&args)).ok();
-            sim::DEV_CAP.set(arg_val(&args, "--dev-cap").and_then(|v| v.parse().ok()).unwrap_or(12)).ok();
-            sim::ROLLOUT_STEPS.set(arg_val(&args, "--rollout-steps").and_then(|v| v.parse().ok()).unwrap_or(20)).ok();
+            sim::DEV_CAP.set(arg_val(&args, "--dev-cap").and_then(|v| v.parse().ok()).unwrap_or(20)).ok();
+            sim::ROLLOUT_STEPS.set(arg_val(&args, "--rollout-steps").and_then(|v| v.parse().ok()).unwrap_or(40)).ok();
             planner::RITUAL_PRELUDE.set(args.iter().any(|a| a == "--ritual-prelude")).ok();
             sim::DEAD_HAND_MULL.set(!args.iter().any(|a| a == "--no-dead-hand-mull")).ok();
             loops::AGGRO_CANTRIPS.set(!args.iter().any(|a| a == "--no-aggro-cantrips")).ok();
@@ -735,8 +735,8 @@ fn main() {
         "serve" => {
             // Web UI: `krarksim serve [--port N] [--seed N] <mull flags>`. Opens a local browser app.
             sim::MULL_CFG.set(parse_mull_cfg(&args)).ok();
-            sim::DEV_CAP.set(arg_val(&args, "--dev-cap").and_then(|v| v.parse().ok()).unwrap_or(12)).ok();
-            sim::ROLLOUT_STEPS.set(arg_val(&args, "--rollout-steps").and_then(|v| v.parse().ok()).unwrap_or(20)).ok();
+            sim::DEV_CAP.set(arg_val(&args, "--dev-cap").and_then(|v| v.parse().ok()).unwrap_or(20)).ok();
+            sim::ROLLOUT_STEPS.set(arg_val(&args, "--rollout-steps").and_then(|v| v.parse().ok()).unwrap_or(40)).ok();
             planner::RITUAL_PRELUDE.set(args.iter().any(|a| a == "--ritual-prelude")).ok();
             sim::DEAD_HAND_MULL.set(!args.iter().any(|a| a == "--no-dead-hand-mull")).ok();
             loops::AGGRO_CANTRIPS.set(!args.iter().any(|a| a == "--no-aggro-cantrips")).ok();
@@ -750,8 +750,8 @@ fn main() {
         "play" => {
             // Interactive REPL: `krarksim play --seed N [--luck L] [--max-turns T] <mull flags>`.
             sim::MULL_CFG.set(parse_mull_cfg(&args)).ok();
-            sim::DEV_CAP.set(arg_val(&args, "--dev-cap").and_then(|v| v.parse().ok()).unwrap_or(12)).ok();
-            sim::ROLLOUT_STEPS.set(arg_val(&args, "--rollout-steps").and_then(|v| v.parse().ok()).unwrap_or(20)).ok();
+            sim::DEV_CAP.set(arg_val(&args, "--dev-cap").and_then(|v| v.parse().ok()).unwrap_or(20)).ok();
+            sim::ROLLOUT_STEPS.set(arg_val(&args, "--rollout-steps").and_then(|v| v.parse().ok()).unwrap_or(40)).ok();
             planner::RITUAL_PRELUDE.set(args.iter().any(|a| a == "--ritual-prelude")).ok();
             sim::DEAD_HAND_MULL.set(!args.iter().any(|a| a == "--no-dead-hand-mull")).ok();
             loops::AGGRO_CANTRIPS.set(!args.iter().any(|a| a == "--no-aggro-cantrips")).ok();
@@ -766,8 +766,8 @@ fn main() {
         }
         "diag" => {
             sim::MULL_CFG.set(parse_mull_cfg(&args)).ok();
-            sim::DEV_CAP.set(arg_val(&args, "--dev-cap").and_then(|v| v.parse().ok()).unwrap_or(12)).ok();
-            sim::ROLLOUT_STEPS.set(arg_val(&args, "--rollout-steps").and_then(|v| v.parse().ok()).unwrap_or(20)).ok();
+            sim::DEV_CAP.set(arg_val(&args, "--dev-cap").and_then(|v| v.parse().ok()).unwrap_or(20)).ok();
+            sim::ROLLOUT_STEPS.set(arg_val(&args, "--rollout-steps").and_then(|v| v.parse().ok()).unwrap_or(40)).ok();
             planner::RITUAL_PRELUDE.set(args.iter().any(|a| a == "--ritual-prelude")).ok();
             sim::DEAD_HAND_MULL.set(!args.iter().any(|a| a == "--no-dead-hand-mull")).ok();
             loops::PRE_KRARK_DIG.set(args.iter().any(|a| a == "--precrark-dig")).ok();
@@ -799,7 +799,7 @@ fn main() {
             game.print_opening();
             let det = planner::DeterministicKillSearch::default();
             let mut prob = planner::ProbabilisticPlanner {
-                mc_sims: 80, max_first: 2, rollout_steps: 20, ..Default::default()
+                mc_sims: 80, max_first: 2, rollout_steps: 40, ..Default::default()
             };
             let mut win_line = None;
             let mut won_turn = 0i64;

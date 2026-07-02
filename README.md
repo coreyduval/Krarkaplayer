@@ -79,7 +79,7 @@ Convention:
 | `--no-aggro-cantrips` | stop casting cantrips just for card flow | off (aggro on) |
 | `--no-jeska-boost` | drop Jeska's Will's elevated tutor priority | off (boost on) |
 | `--ritual-prelude` | (experimental) fire a ritual to power out a payoff a turn early | off |
-| `--dev-cap N` · `--rollout-steps N` | develop-loop cap · go-off rollout depth | 12 · 20 |
+| `--dev-cap N` · `--rollout-steps N` | develop-loop cap · go-off rollout depth | 20 · 40 |
 
 A land↔spell swap keeps the deck at 98: `--cut "Mountain" --add "Preordain"`.
 
