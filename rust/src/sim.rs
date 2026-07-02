@@ -256,7 +256,7 @@ const NEVER_IMPRINT: &[&str] = &[
 ];
 const RAMP_SPELLS: &[&str] = &["Jeska's Will"];
 
-const CLONES: &[&str] = &["Sakashima of a Thousand Faces", "Glasspool Mimic", "Phantasmal Image", "Phyrexian Metamorph", "Mockingbird"];
+const CLONES: &[&str] = &["Sakashima of a Thousand Faces", "Glasspool Mimic", "Phantasmal Image", "Phyrexian Metamorph", "Mockingbird", "Flesh Duplicate"];
 
 // _ACTION = wishlist._ENGINE | {Twinflame, Dualcaster Mage, Molten Duplication}
 fn is_action(name: &str) -> bool {
@@ -298,6 +298,7 @@ fn play_priority(name: &str) -> Option<i64> {
         "Phantasmal Image" => 5,
         "Phyrexian Metamorph" => 5,
         "Mockingbird" => 5,
+        "Flesh Duplicate" => 5,
         "Vivi Ornitier" => 5,
         "Archmage Emeritus" => 5,
         "Storm-Kiln Artist" => 5,

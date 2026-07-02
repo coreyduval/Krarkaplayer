@@ -516,6 +516,35 @@ fn dig_best_surveil(state: &mut GameState, reg: &Registry, k: usize) {
     }
 }
 
+/// Dragon's Rage Channeler surveil-per-cast: for each surveil, look at the top card and bin a
+/// genuinely dead draw — a surplus land (we already control >=4 lands) or a duplicate of a permanent
+/// already on the battlefield — to the graveyard (which also fuels Underworld Breach). Anything with
+/// real value stays on top so the next draw is live. Conservative on purpose: never bins a combo
+/// piece or a land we might still need. Once the top card is a keeper, further surveils see the same
+/// top and keep it too, so we stop.
+fn surveil_bin_bad(state: &mut GameState, reg: &Registry, n: i64) {
+    for _ in 0..n {
+        let Some(top) = state.library.first().cloned() else { break };
+        let is_land = reg.get(&top).types.contains(&CardType::Land);
+        let lands_in_play = state
+            .battlefield
+            .iter()
+            .filter(|p| reg.get(&p.name).types.contains(&CardType::Land))
+            .count();
+        let surplus_land = is_land && lands_in_play >= 4;
+        let dup_perm = state
+            .battlefield
+            .iter()
+            .any(|p| p.effective_name() == top || p.name == top);
+        if surplus_land || dup_perm {
+            let c = state.library.remove(0);
+            state.graveyard.push(c);
+        } else {
+            break;
+        }
+    }
+}
+
 /// Run the per-card effect `n` total instances (resolutions + storm copies). `rng` is used by
 /// Gamble's random discard. Returns true if the card had a scripted effect.
 /// Does `name`'s ETB tutor still have a legal target in the library?
@@ -947,7 +976,7 @@ pub fn resolve_cast_sample<R: Rng + ?Sized>(
     };
 
     // value engines (collect deltas first to avoid borrow conflicts)
-    let engines: Vec<(usize, ManaCost, i64, i64, i64, i64, Option<String>, i64, String)> = state
+    let engines: Vec<(usize, ManaCost, i64, i64, i64, i64, i64, Option<String>, i64, String)> = state
         .value_engines(reg)
         .into_iter()
         .map(|(idx, eng)| {
@@ -958,6 +987,7 @@ pub fn resolve_cast_sample<R: Rng + ?Sized>(
                 eng.treasure_per_trigger,
                 eng.treasure_per_flip_win,
                 eng.damage_per_trigger,
+                eng.surveil_per_trigger,
                 eng.trigger_cause.clone(),
                 state.value_multiplier(eng, true),
                 state.battlefield[idx].effective_name().to_string(),
@@ -965,7 +995,7 @@ pub fn resolve_cast_sample<R: Rng + ?Sized>(
         })
         .collect();
 
-    for (_idx, mana_per, draw_per, treas_per, treas_flip, dmg_per, cause, mult, eff_name) in engines
+    for (_idx, mana_per, draw_per, treas_per, treas_flip, dmg_per, surveil_per, cause, mult, eff_name) in engines
     {
         let events = match cause.as_deref() {
             Some("is_cast_or_copy") => magecraft_events,
@@ -997,6 +1027,9 @@ pub fn resolve_cast_sample<R: Rng + ?Sized>(
                 d -= take;
             }
             state.opponent_life = life;
+        }
+        if surveil_per != 0 && fires != 0 {
+            surveil_bin_bad(state, reg, surveil_per * fires);
         }
         if fires != 0 {
             log.triggers.push((eff_name, fires));

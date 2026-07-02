@@ -45,15 +45,19 @@ fn build_deck(reg: &Registry, islands: u32, mountains: u32) -> Vec<String> {
     // not in the default list.
     // Extra fetches (Misty Rainforest..Flooded Strand) kept in the registry for --add A/B testing of
     // higher fetch counts; not in the default 3-fetch deck.
-    const DECK_EXCLUDE: [&str; 15] = [
+    const DECK_EXCLUDE: [&str; 17] = [
         "Crimson Wisps", "Renegade Tactics", "Accelerate",
         "Misty Rainforest", "Arid Mesa", "Wooded Foothills", "Flooded Strand",
         "The One Ring", "Electro, Assaulting Battery", "Grim Monolith",
         // Cut for Molten Duplication / Flare of Duplication (maindeck). Treasonous Ogre stays modeled
         // but benched — Gut Shot kept instead (faster early-win in the A/B, 1.748 vs 1.718).
         "Peek", "Snap", "Treasonous Ogre",
-        // Bench {2}{R} Heat Shimmers for the +1/+2-shimmer A/B (add via --add).
-        "Heat Shimmer", "Heat Shimmer II",
+        // Opt cut to make room for the shipped Heat Shimmer (real {1}{R} shimmer, now maindeck).
+        "Opt",
+        // Bench {2}{R} 2nd Heat Shimmer for the +2-shimmer A/B (add via --add).
+        "Heat Shimmer II",
+        // Bench test cards (--add): DRC = {R} surveil body; Flesh Duplicate = Krark-copy clone.
+        "Dragon's Rage Channeler", "Flesh Duplicate",
     ];
     let mut deck: Vec<String> = reg
         .ordered_names()

@@ -144,6 +144,10 @@ pub struct CardDef {
     pub mana_per_trigger: ManaCost,
     pub damage_per_trigger: i64,
     pub treasure_per_flip_win: i64,
+    /// Surveil N per qualifying cast (Dragon's Rage Channeler). Not a scalar value like draws — it
+    /// bins genuinely dead top-of-library cards to the graveyard, so it only affects real state
+    /// (library quality + Breach fuel), never the aggregate expected-value analysis.
+    pub surveil_per_trigger: i64,
     pub trigger_cause: Option<String>,
     pub fires_on_copy: bool,
 }
@@ -185,6 +189,7 @@ impl CardDef {
             || !self.mana_per_trigger.is_empty()
             || self.damage_per_trigger != 0
             || self.treasure_per_flip_win != 0
+            || self.surveil_per_trigger != 0
     }
 }
 
@@ -199,7 +204,7 @@ const CREATURES: &[&str] = &[
     "Okaun, Eye of Chaos", "Ragavan, Nimble Pilferer", "Snapcaster Mage",
     "Spellseeker", "Storm-Kiln Artist", "Tavern Scoundrel", "Urabrask",
     "Veyran, Voice of Duality", "Vivi Ornitier", "Zndrsplt, Eye of Wisdom",
-    "Glasspool Mimic", "Phantasmal Image", "Subtlety",
+    "Glasspool Mimic", "Phantasmal Image", "Subtlety", "Dragon's Rage Channeler", "Flesh Duplicate",
     "Valley Floodcaller", "Phyrexian Metamorph", "Mockingbird", "Roaming Throne",
     "Electro, Assaulting Battery", "Treasonous Ogre",
 ];
@@ -238,6 +243,7 @@ fn subtypes_for(name: &str) -> Vec<String> {
         "Electro, Assaulting Battery" => &["Human", "Villain"],
         "Urabrask" => &["Phyrexian", "Praetor"],
         "Vivi Ornitier" => &["Wizard"],
+        "Dragon's Rage Channeler" => &["Human", "Shaman"],
         _ => &[],
     };
     v.iter().map(|s| s.to_string()).collect()
@@ -294,6 +300,12 @@ fn apply_engine(name: &str, cd: &mut CardDef) {
         "Zndrsplt, Eye of Wisdom" => {
             cd.draw_per_trigger = 1;
             cd.trigger_cause = Some("coin_flip_win".into());
+        }
+        // Dragon's Rage Channeler: surveil 1 per noncreature cast (modeled on the I/S casts the
+        // resolver handles). Fires once per cast, not per copy; doubled by Harmonic Prodigy (Shaman).
+        "Dragon's Rage Channeler" => {
+            cd.surveil_per_trigger = 1;
+            cd.trigger_cause = Some("spell_cast".into());
         }
         _ => {}
     }
